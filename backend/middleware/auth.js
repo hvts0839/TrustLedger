@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken'
 
-const PROJECT_ID = 'trustledger-747ba'
+const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'trustledger-747ba'
 const CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com'
 
 let cachedKeys = null
