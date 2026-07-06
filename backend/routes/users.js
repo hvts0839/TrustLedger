@@ -3,7 +3,8 @@ import crypto from 'crypto'
 import User from '../models/User.js'
 import OTP from '../models/OTP.js'
 import auth from '../middleware/auth.js'
-import { sendAlertEmail, buildLockoutEmail, buildNewDeviceEmail, sendOtpEmail } from '../services/mail.js'
+import { sendAlertEmail, buildLockoutEmail, buildNewDeviceEmail, buildPinChangedEmail, buildPinResetEmail, sendOtpEmail } from '../services/mail.js'
+import { createNotification } from '../services/notify.js'
 
 const router = Router()
 
@@ -106,6 +107,7 @@ router.post('/record-failed-attempt', async (req, res) => {
       user.passwordAttempts = 0
       console.log(`[SECURITY] Account locked for ${email} — ${LOCKOUT_DURATION_MS / 60000}m lockout`)
 
+      createNotification(user.firebaseUid, 'Account Locked', 'Too many failed login attempts. Account locked for 30 minutes.', 'error')
       const { subject, text } = buildLockoutEmail(user.name, email)
       sendAlertEmail({ to: email, subject, text })
     }
@@ -139,6 +141,7 @@ router.post('/reset-attempts', async (req, res) => {
         user.knownDevices.push(fp)
         console.log(`[SECURITY] New device login for ${email} — fingerprint: ${fp.slice(0, 16)}...`)
 
+        createNotification(user.firebaseUid, 'New Device Login', `New sign-in from unrecognised device.`, 'warning')
         const { subject, text } = buildNewDeviceEmail(user.name, email, req.deviceInfo || 'Unknown device')
         sendAlertEmail({ to: email, subject, text })
       }
@@ -199,6 +202,7 @@ router.post('/me', auth, async (req, res) => {
     email: req.body.email || '',
     authProvider: req.body.authProvider || 'email',
   })
+  createNotification(req.msmeId, 'Welcome to TrustLedger', 'Your account is ready. Set up your profile to get started.', 'success')
   res.status(201).json(user)
 })
 
@@ -213,6 +217,7 @@ router.patch('/me', auth, async (req, res) => {
     { $set: updates },
     { upsert: true, new: true }
   )
+  if (Object.keys(updates).length) createNotification(req.msmeId, 'Profile Updated', 'Your profile has been updated.', 'info')
   res.json(user)
 })
 
@@ -235,6 +240,7 @@ router.post('/pin/set', auth, async (req, res) => {
   user.pinAttempts = 0
   user.pinLockedUntil = null
   await user.save()
+  createNotification(req.msmeId, 'PIN Set', 'Your security PIN has been set successfully.', 'success')
   console.log(`[PIN] Set successfully for UID ${req.msmeId}`)
   res.json({ ok: true })
 })
@@ -263,6 +269,7 @@ router.post('/pin/verify', auth, async (req, res) => {
     user.pinLockedUntil = new Date(Date.now() + 60000)
     user.pinAttempts = 0
     await user.save()
+    createNotification(req.msmeId, 'PIN Locked', 'Too many incorrect PIN attempts. Locked for 60 seconds.', 'warning')
     return res.status(429).json({ error: 'Too many incorrect attempts. Locked for 60 seconds.' })
   }
   await user.save()
@@ -284,6 +291,11 @@ router.post('/pin/change', auth, async (req, res) => {
   user.pinAttempts = 0
   user.pinLockedUntil = null
   await user.save()
+  createNotification(req.msmeId, 'PIN Changed', 'Your security PIN has been changed.', 'success')
+  if (user.email) {
+    const { subject, text } = buildPinChangedEmail(user.name)
+    sendAlertEmail({ to: user.email, subject, text })
+  }
   res.json({ ok: true })
 })
 
@@ -308,6 +320,11 @@ router.post('/pin/reset', auth, async (req, res) => {
   user.pinAttempts = 0
   user.pinLockedUntil = null
   await user.save()
+  createNotification(req.msmeId, 'PIN Reset', 'Your security PIN has been reset.', 'success')
+  if (user.email) {
+    const { subject, text } = buildPinResetEmail(user.name)
+    sendAlertEmail({ to: user.email, subject, text })
+  }
   res.json({ ok: true })
 })
 
@@ -413,6 +430,7 @@ router.post('/verify-otp', auth, async (req, res) => {
     await user.save()
     await OTP.deleteOne({ _id: otpRecord._id })
 
+    createNotification(req.msmeId, 'Email Verified', 'Your email has been successfully verified.', 'success')
     console.log(`[OTP] Verified successfully for ${email} (UID: ${req.msmeId})`)
     res.json({ ok: true })
   } catch (err) {

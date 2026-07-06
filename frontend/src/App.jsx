@@ -50,7 +50,7 @@ export default function App() {
             data = await api.get('/users/me')
           } catch {
             // First login — create record
-            data = await api.post('/me', {
+            data = await api.post('/users/me', {
               email: u.email || '',
               authProvider: u.providerData?.some(p => p.providerId === 'google.com') ? 'google' : 'email',
             })

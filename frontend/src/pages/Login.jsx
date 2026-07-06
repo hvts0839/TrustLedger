@@ -65,7 +65,7 @@ export default function Login({ initialMode, onBack, onSwitchToRegister }) {
     setResetEmailSent(false)
 
     if (!isRegister) {
-      const check = await api.post('/check-lockout', { email }).catch(() => ({ locked: false, captchaRequired: false }))
+      const check = await api.post('/users/check-lockout', { email }).catch(() => ({ locked: false, captchaRequired: false }))
       if (check.locked) {
         const mins = check.remainingMinutes || 30
         setError(`Too many failed attempts. Please try again in ${mins} minute${mins === 1 ? '' : 's'}, or use "Forgot Password" to reset.`)
@@ -82,7 +82,7 @@ export default function Login({ initialMode, onBack, onSwitchToRegister }) {
         setSubmitting(false)
         return
       }
-      const verified = await api.post('/verify-captcha', { token: captchaToken }).catch(() => null)
+      const verified = await api.post('/users/verify-captcha', { token: captchaToken }).catch(() => null)
       if (!verified || !verified.ok) {
         setError('Security check failed. Please try again.')
         setSubmitting(false)
@@ -98,18 +98,18 @@ export default function Login({ initialMode, onBack, onSwitchToRegister }) {
 
       if (isRegister) {
         await createUserWithEmailAndPassword(auth, email, password)
-        await api.post('/me', { email, authProvider: 'email' })
-        await api.post('/send-otp', { email })
+        await api.post('/users/me', { email, authProvider: 'email' })
+        await api.post('/users/send-otp', { email })
       } else {
         await signInWithEmailAndPassword(auth, email, password)
       }
 
       if (!isRegister) {
-        api.post('/reset-attempts', { email }).catch(() => {})
+        api.post('/users/reset-attempts', { email }).catch(() => {})
       }
     } catch (err) {
       if (!isRegister) {
-        api.post('/record-failed-attempt', { email }).catch(() => {})
+        api.post('/users/record-failed-attempt', { email }).catch(() => {})
       }
       setError(friendlyFirebaseError(err.message))
       setSubmitting(false)

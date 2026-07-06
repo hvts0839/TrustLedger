@@ -3,6 +3,7 @@ import Invoice from '../models/Invoice.js'
 import User from '../models/User.js'
 import { sendAlertEmail, buildOverdueEmail } from './mail.js'
 import { calculateInterestSync } from './interest.js'
+import { createNotification } from './notify.js'
 
 export function startOverdueScan() {
   cron.schedule('0 8 * * *', async () => {
@@ -36,9 +37,16 @@ export async function runOverdueScan() {
 
         if (!alreadyNotifiedToday) {
           newlyFlagged++
-          await Invoice.findByIdAndUpdate(inv._id, {
-            $set: { lastOverdueNotifiedAt: now }
-          })
+            await Invoice.findByIdAndUpdate(inv._id, {
+              $set: { lastOverdueNotifiedAt: now, escalationStage: inv.escalationStage ? inv.escalationStage + 1 : 1 }
+            })
+            await createNotification(
+              inv.msmeId,
+              'Invoice Overdue',
+              `${inv.buyerName} — ${inv.invoiceNumber || 'No ref'} (₹${inv.amount.toLocaleString('en-IN')}) is overdue today.`,
+              'warning',
+              inv._id
+            )
 
           const user = await User.findOne({ firebaseUid: inv.msmeId })
           if (user && user.emailReminders && user.email) {

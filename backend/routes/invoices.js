@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import Invoice from '../models/Invoice.js'
 import { calculateInterest, getRbiBankRate } from '../services/interest.js'
+import { createNotification } from '../services/notify.js'
 
 const router = Router()
 
@@ -279,6 +280,9 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Validation failed', fields: errors })
   }
   const invoice = await Invoice.create({ ...picked, msmeId: req.msmeId })
+  createNotification(req.msmeId, 'Invoice Created',
+    `${invoice.buyerName} — ${invoice.invoiceNumber || 'No ref'} (₹${invoice.amount.toLocaleString('en-IN')}) logged.`,
+    'info', invoice._id)
   res.status(201).json(invoice)
 })
 
@@ -322,6 +326,16 @@ router.patch('/:id', async (req, res) => {
   }
 
   const updated = await Invoice.findByIdAndUpdate(req.params.id, picked, { new: true })
+  if (picked.status === 'paid' && invoice.status !== 'paid') {
+    createNotification(req.msmeId, 'Invoice Paid',
+      `${updated.buyerName} — ${updated.invoiceNumber || 'No ref'} (₹${updated.amount.toLocaleString('en-IN')}) marked as paid.`,
+      'success', updated._id)
+  } else if (Object.keys(picked).length) {
+    // ponytail: only notifies on non-status updates, skips if only status toggled unpaid
+    createNotification(req.msmeId, 'Invoice Updated',
+      `${updated.buyerName} — ${updated.invoiceNumber || 'No ref'} updated.`,
+      'info', updated._id)
+  }
   res.json(updated)
 })
 
@@ -330,6 +344,7 @@ router.delete('/:id', async (req, res) => {
   if (!invoice) return res.status(404).json({ error: 'not found' })
   if (invoice.msmeId !== req.msmeId) return res.status(404).json({ error: 'not found' })
   await Invoice.findByIdAndDelete(req.params.id)
+  createNotification(req.msmeId, 'Invoice Deleted', `${invoice.buyerName} — ${invoice.invoiceNumber || 'No ref'} (₹${invoice.amount.toLocaleString('en-IN')}) has been deleted.`, 'info')
   res.json({ ok: true })
 })
 

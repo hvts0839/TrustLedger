@@ -80,9 +80,9 @@ export default function Register({ onBack, onSwitchToLogin }) {
     try {
       await createUserWithEmailAndPassword(auth, email, password)
       // Create user record in MongoDB
-      await api.post('/me', { email, authProvider: 'email' })
+      await api.post('/users/me', { email, authProvider: 'email' })
       // Send OTP via backend
-      await api.post('/send-otp', { email })
+      await api.post('/users/send-otp', { email })
       // App.jsx onAuthStateChanged will fire → checks emailVerified from DB → VerifyEmail shown
     } catch (err) {
       setError(friendlyError(err.message))

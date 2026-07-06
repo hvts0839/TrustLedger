@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import { BackIcon, CalendarIcon, RupeeIcon } from '../components/Icons'
 
@@ -17,6 +17,48 @@ export default function AddInvoice({ nav }) {
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [buyerQuery, setBuyerQuery] = useState('')
+  const [buyers, setBuyers] = useState([])
+  const [showBuyerDropdown, setShowBuyerDropdown] = useState(false)
+  const [selectedBuyerId, setSelectedBuyerId] = useState(null)
+  const buyerRef = useRef(null)
+  const buyerSearchRef = useRef(null)
+
+  useEffect(() => {
+    if (!buyerQuery.trim()) { setBuyers([]); return }
+    const t = setTimeout(async () => {
+      try {
+        const data = await api.get(`/buyers?q=${encodeURIComponent(buyerQuery)}`)
+        setBuyers(data)
+        setShowBuyerDropdown(data.length > 0)
+      } catch { setBuyers([]) }
+    }, 200)
+    return () => clearTimeout(t)
+  }, [buyerQuery])
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (buyerRef.current && !buyerRef.current.contains(e.target)) setShowBuyerDropdown(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function selectBuyer(b) {
+    setForm(f => ({ ...f, buyerName: b.name, buyerAddress: b.address || f.buyerAddress }))
+    setSelectedBuyerId(b._id)
+    setShowBuyerDropdown(false)
+    setBuyerQuery(b.name)
+  }
+
+  async function saveAsNewBuyer() {
+    if (!form.buyerName.trim()) return
+    try {
+      const b = await api.post('/buyers', { name: form.buyerName, address: form.buyerAddress })
+      setSelectedBuyerId(b._id)
+      setBuyerQuery(form.buyerName)
+    } catch { /* silent */ }
+  }
 
   function toggleMode(full) {
     setFullMode(full)
@@ -38,6 +80,7 @@ export default function AddInvoice({ nav }) {
         amount: Number(form.amount),
         deliveryDate: form.deliveryDate,
         agreedTermsDays: Number(form.agreedTermsDays),
+        buyerId: selectedBuyerId || undefined,
       }
       if (fullMode) {
         body.buyerAddress = form.buyerAddress
@@ -98,15 +141,42 @@ export default function AddInvoice({ nav }) {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
         <div className="grid grid-cols-2 gap-4">
-          <div className="col-span-2">
+          <div className="col-span-2 relative" ref={buyerRef}>
             <label className="block text-sm font-medium text-slate-700 mb-1">Buyer Name</label>
             <input
+              ref={buyerSearchRef}
               className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
-              placeholder="e.g. ABC Corp"
-              value={form.buyerName}
-              onChange={set('buyerName')}
+              placeholder="Search or type buyer name"
+              value={buyerQuery}
+              onChange={e => { setBuyerQuery(e.target.value); setForm(f => ({ ...f, buyerName: e.target.value })); setSelectedBuyerId(null) }}
+              onFocus={() => buyers.length > 0 && setShowBuyerDropdown(true)}
               required
             />
+            {selectedBuyerId && <span className="text-[10px] text-teal-600 mt-0.5 block">Linked to saved buyer</span>}
+            {showBuyerDropdown && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto">
+                {buyers.map(b => (
+                  <button
+                    key={b._id}
+                    type="button"
+                    onClick={() => selectBuyer(b)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b border-slate-50 last:border-0"
+                  >
+                    <span className="font-medium text-slate-800">{b.name}</span>
+                    {b.gstin && <span className="text-xs text-slate-400 ml-2">GST: {b.gstin}</span>}
+                  </button>
+                ))}
+                {buyerQuery.trim() && !buyers.some(b => b.name.toLowerCase() === buyerQuery.trim().toLowerCase()) && (
+                  <button
+                    type="button"
+                    onClick={saveAsNewBuyer}
+                    className="w-full text-left px-3 py-2 text-xs text-teal-600 hover:bg-teal-50 font-medium border-t border-slate-100"
+                  >
+                    + Save "{buyerQuery.trim()}" as new buyer
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div>

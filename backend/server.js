@@ -6,13 +6,13 @@ import mongoSanitize from 'express-mongo-sanitize'
 import auth from './middleware/auth.js'
 import invoiceRoutes from './routes/invoices.js'
 import userRoutes from './routes/users.js'
+import buyerRoutes from './routes/buyers.js'
+import notificationRoutes from './routes/notifications.js'
 import systemRoutes from './routes/system.js'
 import { loginLimiter, forgotFlowLimiter } from './services/rateLimit.js'
 import { fingerprint, buildDeviceInfo } from './services/deviceFingerprint.js'
-import { sendAlertEmail, buildLockoutEmail, buildNewDeviceEmail } from './services/mail.js'
 import { startOverdueScan } from './services/overdueScan.js'
 import { startRbiRateCheck } from './services/rbiRateCheck.js'
-import User from './models/User.js'
 
 const app = express()
 
@@ -39,6 +39,8 @@ app.use('/users/verify-otp', loginLimiter)
 
 app.use('/users', userRoutes)
 app.use('/invoices', auth, invoiceRoutes)
+app.use('/buyers', auth, buyerRoutes)
+app.use('/notifications', auth, notificationRoutes)
 app.use('/system', systemRoutes)
 
 if (!process.env.MONGO_URL) {

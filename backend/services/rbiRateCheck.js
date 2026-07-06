@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import SystemConfig from '../models/SystemConfig.js'
 import { sendAlertEmail, buildRateChangeAlertEmail } from './mail.js'
+import { createNotification } from './notify.js'
 import User from '../models/User.js'
 
 const RBI_RATE_URL = 'https://api.rbi.org.in/bank-rate'
@@ -37,6 +38,7 @@ export async function checkRbiRate() {
 
       const users = await User.find({ emailReminders: true }).lean()
       let sent = 0
+      // ponytail: single message per user, no dedup — cron runs weekly so it's fine
       for (const user of users) {
         if (user.email) {
           const { subject, text } = buildRateChangeAlertEmail(
@@ -45,6 +47,8 @@ export async function checkRbiRate() {
           await sendAlertEmail({ to: user.email, subject, text })
           sent++
         }
+        createNotification(user.firebaseUid, 'RBI Rate Change',
+          `Bank rate may have changed from ${storedRate}% to ${fetchedRate}%. Review in Settings.`, 'warning')
       }
       console.log(`[RBI-RATE] Flagged change and notified ${sent} user(s)`)
     } else {

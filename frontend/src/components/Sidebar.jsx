@@ -1,6 +1,7 @@
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import { HomeIcon, InvoiceIcon, AddIcon, SettingsIcon, UserIcon, LogoutIcon } from './Icons'
+import NotificationBell from './NotificationBell'
 import { useState } from 'react'
 
 const mainItems = [
@@ -29,12 +30,13 @@ export default function Sidebar({ page, nav, userName }) {
       <div className="px-6 py-5 border-b border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-teal-500 flex items-center justify-center text-sm font-bold text-white shrink-0">TL</div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-sm font-bold leading-tight truncate">
               {firstName ? `Hi, ${firstName}` : 'Hi there'}
             </h1>
             <p className="text-[10px] text-slate-400 leading-tight truncate">Invoice Ledger</p>
           </div>
+          <NotificationBell />
         </div>
       </div>
 

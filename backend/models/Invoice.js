@@ -3,6 +3,7 @@ import { calculateInterestSync } from '../services/interest.js'
 
 const invoiceSchema = new mongoose.Schema({
   msmeId: { type: String, required: true },
+  buyerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer', default: null },
   buyerName: { type: String, required: true },
   invoiceNumber: { type: String, required: true },
   amount: { type: Number, required: true },

@@ -17,7 +17,7 @@ function getTransporter() {
       },
     })
   } else {
-    transporter = { sendMail: async () => console.log('[MAIL] No SMTP configured — skipping email') }
+    transporter = { sendMail: async () => { throw new Error('No SMTP configured') } }
   }
 
   return transporter
@@ -92,6 +92,34 @@ What you can do:
 This reminder was sent at ${now} IST.
 
 — TrustLedger Team`
+  }
+}
+
+export function buildPinChangedEmail(name) {
+  const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+  return {
+    subject: 'TrustLedger — Security PIN Changed',
+    text: `Hi ${name || 'Valued User'},
+
+Your TrustLedger security PIN was changed at ${now} IST.
+
+If you made this change, no action is needed. If you did NOT, someone may have accessed your account. Reset your password and contact support immediately.
+
+— TrustLedger Security Team`
+  }
+}
+
+export function buildPinResetEmail(name) {
+  const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+  return {
+    subject: 'TrustLedger — Security PIN Reset',
+    text: `Hi ${name || 'Valued User'},
+
+Your TrustLedger security PIN was reset at ${now} IST.
+
+If you made this change, no action is needed. If you did NOT, someone may have accessed your account. Reset your password and contact support immediately.
+
+— TrustLedger Security Team`
   }
 }
 
