@@ -1,0 +1,904 @@
+openapi: '3.0.3'
+info:
+  title: TrustLedger API
+  description: |
+    MSMED Act compliance platform for Indian MSMEs.
+    All invoice endpoints require Firebase Authentication.
+  version: 1.0.0
+  contact:
+    name: TrustLedger Team
+  license:
+    name: Proprietary
+
+servers:
+  - url: /api
+    description: API base path (set via VITE_API_URL / MONGO_URL)
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+
+  /users/check-lockout:
+    post:
+      summary: Check if an account is locked or CAPTCHA is required
+      operationId: checkLockout
+      tags: [Users, Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: msme@example.com
+      responses:
+        '200':
+          description: Lockout and CAPTCHA status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locked:
+                    type: boolean
+                  remainingMinutes:
+                    type: integer
+                  captchaRequired:
+                    type: boolean
+
+  /users/record-failed-attempt:
+    post:
+      summary: Record a failed login attempt (triggers lockout at threshold)
+      operationId: recordFailedAttempt
+      tags: [Users, Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Attempt recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /users/reset-attempts:
+    post:
+      summary: Reset failed-attempt counters and track new device login
+      operationId: resetAttempts
+      tags: [Users, Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Counters reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /users/verify-captcha:
+    post:
+      summary: Verify a reCAPTCHA token
+      operationId: verifyCaptcha
+      tags: [Users, Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: reCAPTCHA response token
+      responses:
+        '200':
+          description: CAPTCHA verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: Verification failed
+
+  /users/me:
+    get:
+      summary: Get the authenticated user's profile
+      operationId: getProfile
+      tags: [Users, Profile]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+
+    post:
+      summary: Create a profile for the authenticated user (idempotent)
+      operationId: createProfile
+      tags: [Users, Profile]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 256
+                email:
+                  type: string
+                  format: email
+                authProvider:
+                  type: string
+                  enum: [email, google]
+      responses:
+        '201':
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '200':
+          description: Profile already exists (idempotent)
+
+    patch:
+      summary: Update the authenticated user's profile (whitelisted fields only)
+      operationId: updateProfile
+      tags: [Users, Profile]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 256
+                companyName:
+                  type: string
+                udyamNumber:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                profileComplete:
+                  type: boolean
+                emailReminders:
+                  type: boolean
+                dataSharing:
+                  type: boolean
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/pin/status:
+    get:
+      summary: Check whether the user has a PIN set
+      operationId: getPinStatus
+      tags: [Users, PIN]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: PIN status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  hasPin:
+                    type: boolean
+
+  /users/pin/set:
+    post:
+      summary: Set or overwrite the app PIN
+      operationId: setPin
+      tags: [Users, PIN]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+                  pattern: '^\d{4}$'
+                  description: Exactly 4 digits
+      responses:
+        '200':
+          description: PIN set successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: Invalid PIN format
+
+  /users/pin/verify:
+    post:
+      summary: Verify the app PIN (rate-limited, 5 attempts → 60s lockout)
+      operationId: verifyPin
+      tags: [Users, PIN]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+                  pattern: '^\d{4}$'
+      responses:
+        '200':
+          description: PIN correct
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Incorrect PIN
+        '429':
+          description: Too many attempts (locked)
+
+  /users/pin/change:
+    post:
+      summary: Change the PIN (requires current PIN)
+      operationId: changePin
+      tags: [Users, PIN]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPin, newPin]
+              properties:
+                currentPin:
+                  type: string
+                  pattern: '^\d{4}$'
+                newPin:
+                  type: string
+                  pattern: '^\d{4}$'
+      responses:
+        '200':
+          description: PIN changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '401':
+          description: Incorrect current PIN
+
+  /users/pin/reset:
+    post:
+      summary: Force-reset the PIN (requires CAPTCHA if IP threshold is met)
+      operationId: resetPin
+      tags: [Users, PIN]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+                  pattern: '^\d{4}$'
+                captchaToken:
+                  type: string
+                  description: reCAPTCHA token required if suspicious IP
+      responses:
+        '200':
+          description: PIN reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        '400':
+          description: CAPTCHA required or invalid
+
+  /invoices:
+    get:
+      summary: List all invoices for the authenticated MSME (paginated, filterable)
+      operationId: listInvoices
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: buyer
+          in: query
+          schema: { type: string }
+          description: Partial buyer name search (case-insensitive)
+        - name: amountMin
+          in: query
+          schema: { type: number }
+        - name: amountMax
+          in: query
+          schema: { type: number }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { type: string, enum: [outstanding, paid] }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [amount, buyerName, deliveryDate, createdAt, updatedAt] }
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Paginated invoice list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoices'
+
+    post:
+      summary: Create a new invoice
+      operationId: createInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InvoiceInput'
+      responses:
+        '201':
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+  /invoices/overdue:
+    get:
+      summary: List overdue invoices (past legal due date)
+      operationId: listOverdue
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: buyer
+          in: query
+          schema: { type: string }
+        - name: amountMin
+          in: query
+          schema: { type: number }
+        - name: amountMax
+          in: query
+          schema: { type: number }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [amount, buyerName, deliveryDate, dueDate, daysOverdue] }
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Paginated overdue list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoices'
+
+  /invoices/outstanding:
+    get:
+      summary: List outstanding (unpaid, not yet overdue) invoices
+      operationId: listOutstanding
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ListQueryParams'
+      responses:
+        '200':
+          description: Paginated outstanding list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoices'
+
+  /invoices/transactions:
+    get:
+      summary: List paid invoices with computed interest data
+      operationId: listTransactions
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ListQueryParams'
+      responses:
+        '200':
+          description: Paginated paid invoices with interest enrichment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoices'
+
+  /invoices/interest:
+    get:
+      summary: List overdue invoices with accrued interest data
+      operationId: listInterest
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: buyer
+          in: query
+          schema: { type: string }
+        - name: amountMin
+          in: query
+          schema: { type: number }
+        - name: amountMax
+          in: query
+          schema: { type: number }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: status
+          in: query
+          schema: { type: string, enum: [outstanding, paid] }
+        - name: sortBy
+          in: query
+          schema: { type: string, enum: [interest, amount, buyerName, deliveryDate] }
+        - name: sortOrder
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
+      responses:
+        '200':
+          description: Paginated interest data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedInvoices'
+
+  /invoices/stats:
+    get:
+      summary: Aggregated dashboard statistics
+      operationId: getStats
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+
+  /invoices/{id}:
+    get:
+      summary: Get a single invoice by ID
+      operationId: getInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: MongoDB ObjectId
+      responses:
+        '200':
+          description: Invoice found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+        '404':
+          description: Invoice not found
+
+    patch:
+      summary: Update an invoice (whitelist recommended — currently passes entire body)
+      operationId: updateInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [paid]
+                buyerName:
+                  type: string
+                amount:
+                  type: number
+                deliveryDate:
+                  type: string
+                  format: date
+                agreedTermsDays:
+                  type: integer
+                invoiceNumber:
+                  type: string
+      responses:
+        '200':
+          description: Invoice updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Invoice'
+
+    delete:
+      summary: Delete an invoice
+      operationId: deleteInvoice
+      tags: [Invoices]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Invoice deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Firebase Auth ID token
+
+  parameters:
+    ListQueryParams:
+      name: List Query Parameters
+      in: query
+      description: Pagination, sorting, and filtering
+      schema:
+        type: object
+        properties:
+          buyer:
+            type: string
+          amountMin:
+            type: number
+          amountMax:
+            type: number
+          dateFrom:
+            type: string
+            format: date
+          dateTo:
+            type: string
+            format: date
+          sortBy:
+            type: string
+          sortOrder:
+            type: string
+            enum: [asc, desc]
+          page:
+            type: integer
+            minimum: 1
+            default: 1
+          limit:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        firebaseUid:
+          type: string
+        name:
+          type: string
+        companyName:
+          type: string
+        udyamNumber:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        authProvider:
+          type: string
+          enum: [email, google]
+        profileComplete:
+          type: boolean
+        pinHash:
+          type: string
+        pinAttempts:
+          type: integer
+        pinLockedUntil:
+          type: string
+          nullable: true
+          format: date-time
+        passwordAttempts:
+          type: integer
+        passwordLockedUntil:
+          type: string
+          nullable: true
+          format: date-time
+        emailReminders:
+          type: boolean
+        dataSharing:
+          type: boolean
+        knownDevices:
+          type: array
+          items:
+            type: string
+        lastLoginAt:
+          type: string
+          nullable: true
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    InvoiceInput:
+      type: object
+      required:
+        - buyerName
+        - invoiceNumber
+        - amount
+        - deliveryDate
+      properties:
+        buyerName:
+          type: string
+          description: Name of the buyer entity
+          example: ABC Corp
+        invoiceNumber:
+          type: string
+          description: Invoice or PO reference number
+          example: INV-001
+        amount:
+          type: number
+          description: Invoice amount in INR
+          minimum: 0
+          example: 50000
+        deliveryDate:
+          type: string
+          format: date
+          description: Date goods/services were delivered
+          example: '2026-06-01'
+        agreedTermsDays:
+          type: integer
+          description: Payment terms in days (legal max 45 under MSMED Act)
+          default: 45
+          minimum: 1
+          maximum: 90
+          example: 45
+        buyerAddress:
+          type: string
+          description: Buyer's registered address
+        invoiceDate:
+          type: string
+          format: date
+          description: Date of invoice issuance
+        workDescription:
+          type: string
+          description: Description of goods or services supplied
+        gstIncluded:
+          type: boolean
+          description: Whether the amount includes GST
+          default: false
+        gstAmount:
+          type: number
+          description: GST amount (if separate from invoice amount)
+        agreementRef:
+          type: string
+          description: Purchase order or contract reference number
+        msmeAddressOverride:
+          type: string
+          description: Alternative MSME address for this invoice
+        declarationText:
+          type: string
+          description: Custom declaration text (defaults to MSMED Act statement)
+
+    Invoice:
+      allOf:
+        - $ref: '#/components/schemas/InvoiceInput'
+        - type: object
+          properties:
+            _id:
+              type: string
+            msmeId:
+              type: string
+              description: Firebase UID of the MSME user
+            status:
+              type: string
+              enum: [outstanding, paid]
+              default: outstanding
+            legalDueDate:
+              type: string
+              format: date-time
+              description: Computed virtual — deliveryDate + agreedTermsDays
+            interestAccrued:
+              type: number
+              description: Computed virtual — daily compound interest at 3x RBI rate
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+
+    PaginatedInvoices:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Invoice'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    Stats:
+      type: object
+      properties:
+        totalOutstanding:
+          type: number
+        totalOverdue:
+          type: number
+        totalInterest:
+          type: number
+        resolvedThisMonth:
+          type: number
+        overdueCount:
+          type: integer
+        outstandingCount:
+          type: integer
+        monthlyData:
+          type: array
+          items:
+            type: object
+            properties:
+              month:
+                type: string
+              invoices:
+                type: integer
+              paid:
+                type: integer

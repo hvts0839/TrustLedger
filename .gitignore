@@ -1,0 +1,6 @@
+node_modules
+.env
+opencode.json
+*.log
+*-firebase-adminsdk-*.json
+frontend/src/firebase.js
