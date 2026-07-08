@@ -5,7 +5,7 @@ import StatusBadge from '../components/StatusBadge'
 
 const config = {
   sortOptions: { buyerName: 'Buyer', amount: 'Amount', interest: 'Interest', deliveryDate: 'Due Date' },
-  filters: { buyer: true, amount: true, dateRange: true, status: true },
+  filters: { buyer: true, amount: true, dateRange: true, status: true, daysOverdueRange: true, interestRange: true },
   statusOptions: [['outstanding', 'Outstanding'], ['paid', 'Paid']],
 }
 
@@ -19,6 +19,10 @@ async function fetchData(pg, filters) {
   if (filters.dateFrom) params.set('dateFrom', filters.dateFrom)
   if (filters.dateTo) params.set('dateTo', filters.dateTo)
   if (filters.status) params.set('status', filters.status)
+  if (filters.daysOverdueMin) params.set('daysOverdueMin', filters.daysOverdueMin)
+  if (filters.daysOverdueMax) params.set('daysOverdueMax', filters.daysOverdueMax)
+  if (filters.interestMin) params.set('interestMin', filters.interestMin)
+  if (filters.interestMax) params.set('interestMax', filters.interestMax)
   try { return await api.get(`/invoices/interest?${params}`) }
   catch { return { data: [], total: 0, page: 1, totalPages: 1 } }
 }

@@ -7,6 +7,7 @@ const systemConfigSchema = new mongoose.Schema({
   rbiRateChangeFlagged: { type: Boolean, default: false },
   rbiRatePreviousValue: { type: Number, default: null },
   rbiRateLastChecked: { type: Date },
+  rateHistory: [{ _id: false, year: Number, month: Number, rate: Number }],
 }, { timestamps: true })
 
 systemConfigSchema.statics.getConfig = async function () {

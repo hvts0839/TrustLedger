@@ -5,7 +5,7 @@ import { AlertIcon } from '../components/Icons'
 
 const config = {
   sortOptions: { buyerName: 'Buyer', amount: 'Amount', daysOverdue: 'Days Overdue', dueDate: 'Due Date' },
-  filters: { buyer: true, amount: true, dateRange: true },
+  filters: { buyer: true, amount: true, dateRange: true, daysOverdueRange: true },
 }
 
 async function fetchData(pg, filters) {
@@ -17,6 +17,8 @@ async function fetchData(pg, filters) {
   if (filters.amountMax) params.set('amountMax', filters.amountMax)
   if (filters.dateFrom) params.set('dateFrom', filters.dateFrom)
   if (filters.dateTo) params.set('dateTo', filters.dateTo)
+  if (filters.daysOverdueMin) params.set('daysOverdueMin', filters.daysOverdueMin)
+  if (filters.daysOverdueMax) params.set('daysOverdueMax', filters.daysOverdueMax)
   try { return await api.get(`/invoices/overdue?${params}`) }
   catch { return { data: [], total: 0, page: 1, totalPages: 1 } }
 }

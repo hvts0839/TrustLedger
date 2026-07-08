@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import Invoice from '../models/Invoice.js'
-import { calculateInterest, getRbiBankRate } from '../services/interest.js'
+import { calculateInterest, getRbiBankRate, getRateHistory } from '../services/interest.js'
 import { createNotification } from '../services/notify.js'
 
 const router = Router()
@@ -112,7 +112,7 @@ router.get('/', async (req, res) => {
 
 router.get('/overdue', async (req, res) => {
   const now = new Date()
-  const { buyer, amountMin, amountMax, dateFrom, dateTo, sortBy, sortOrder, page, limit } = req.query
+  const { buyer, amountMin, amountMax, dateFrom, dateTo, daysOverdueMin, daysOverdueMax, sortBy, sortOrder, page, limit } = req.query
   const pageNum = Math.max(1, parseInt(page) || 1)
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50))
 
@@ -121,7 +121,7 @@ router.get('/overdue', async (req, res) => {
   if (amountMin || amountMax) { baseFilter.amount = {}; if (amountMin) baseFilter.amount.$gte = Number(amountMin); if (amountMax) baseFilter.amount.$lte = Number(amountMax) }
 
   const all = await Invoice.find(baseFilter).lean()
-  const bankRate = await getRbiBankRate()
+  const [bankRate, rateHistory] = await Promise.all([getRbiBankRate(), getRateHistory()])
   let overdue = all.filter(inv => {
     const due = new Date(inv.deliveryDate)
     due.setDate(due.getDate() + inv.agreedTermsDays)
@@ -130,9 +130,11 @@ router.get('/overdue', async (req, res) => {
 
   if (dateFrom) overdue = overdue.filter(inv => new Date(inv.deliveryDate) >= new Date(dateFrom))
   if (dateTo) overdue = overdue.filter(inv => new Date(inv.deliveryDate) <= new Date(dateTo))
+  if (daysOverdueMin) { const m = Number(daysOverdueMin); overdue = overdue.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) >= m }) }
+  if (daysOverdueMax) { const m = Number(daysOverdueMax); overdue = overdue.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) <= m }) }
 
   overdue = overdue.map(inv => {
-    const { totalInterest } = calculateInterest(inv.amount, inv.deliveryDate, inv.agreedTermsDays, now, bankRate)
+    const { totalInterest } = calculateInterest(inv.amount, inv.deliveryDate, inv.agreedTermsDays, now, bankRate, rateHistory)
     return { ...inv, interestAccrued: totalInterest }
   })
 
@@ -166,17 +168,18 @@ router.get('/outstanding', async (req, res) => {
 router.get('/transactions', async (req, res) => {
   const q = { ...req.query, status: 'paid' }
   const { filter, sort, skip, limit } = buildQuery({ msmeId: req.msmeId, status: 'paid' }, q)
-  const [data, total, bankRate] = await Promise.all([
+  const [data, total, bankRate, rateHistory] = await Promise.all([
     Invoice.find(filter).sort(sort).skip(skip).limit(limit),
     Invoice.countDocuments(filter),
     getRbiBankRate(),
+    getRateHistory(),
   ])
   const enriched = data.map(inv => {
     const due = new Date(inv.deliveryDate)
     due.setDate(due.getDate() + inv.agreedTermsDays)
     const paidAt = new Date(inv.updatedAt)
     const { totalInterest, breakdown } = calculateInterest(
-      inv.amount, inv.deliveryDate, inv.agreedTermsDays, paidAt, bankRate
+      inv.amount, inv.deliveryDate, inv.agreedTermsDays, paidAt, bankRate, rateHistory
     )
     return { ...inv.toJSON(), daysLate: breakdown?.daysOverdue || 0, interestPaid: totalInterest }
   })
@@ -185,7 +188,7 @@ router.get('/transactions', async (req, res) => {
 
 router.get('/interest', async (req, res) => {
   const now = new Date()
-  const { buyer, amountMin, amountMax, dateFrom, dateTo, sortBy, sortOrder, status, page, limit } = req.query
+  const { buyer, amountMin, amountMax, dateFrom, dateTo, daysOverdueMin, daysOverdueMax, interestMin, interestMax, sortBy, sortOrder, status, page, limit } = req.query
   const pageNum = Math.max(1, parseInt(page) || 1)
   const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50))
 
@@ -195,7 +198,7 @@ router.get('/interest', async (req, res) => {
   if (status) baseFilter.status = status
 
   const all = await Invoice.find(baseFilter).lean()
-  const bankRate = await getRbiBankRate()
+  const [bankRate, rateHistory] = await Promise.all([getRbiBankRate(), getRateHistory()])
   let withInterest = all.filter(inv => {
     if (inv.status === 'paid') return false
     const due = new Date(inv.deliveryDate)
@@ -205,9 +208,13 @@ router.get('/interest', async (req, res) => {
 
   if (dateFrom) withInterest = withInterest.filter(inv => new Date(inv.deliveryDate) >= new Date(dateFrom))
   if (dateTo) withInterest = withInterest.filter(inv => new Date(inv.deliveryDate) <= new Date(dateTo))
+  if (daysOverdueMin) { const m = Number(daysOverdueMin); withInterest = withInterest.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) >= m }) }
+  if (daysOverdueMax) { const m = Number(daysOverdueMax); withInterest = withInterest.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) <= m }) }
+  if (interestMin) withInterest = withInterest.filter(inv => (inv.interestAccrued || 0) >= Number(interestMin))
+  if (interestMax) withInterest = withInterest.filter(inv => (inv.interestAccrued || 0) <= Number(interestMax))
 
   withInterest = withInterest.map(inv => {
-    const { totalInterest } = calculateInterest(inv.amount, inv.deliveryDate, inv.agreedTermsDays, now, bankRate)
+    const { totalInterest } = calculateInterest(inv.amount, inv.deliveryDate, inv.agreedTermsDays, now, bankRate, rateHistory)
     return { ...inv, interestAccrued: totalInterest }
   })
 
@@ -231,7 +238,7 @@ router.get('/stats', async (req, res) => {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1)
-  const [all, paidThisMonth, monthlyInvoices, bankRate] = await Promise.all([
+  const [all, paidThisMonth, monthlyInvoices, bankRate, rateHistory] = await Promise.all([
     Invoice.find({ msmeId: req.msmeId }).lean(),
     Invoice.find({ msmeId: req.msmeId, status: 'paid', updatedAt: { $gte: startOfMonth } }).lean(),
     Invoice.aggregate([
@@ -240,6 +247,7 @@ router.get('/stats', async (req, res) => {
       { $sort: { '_id.year': 1, '_id.month': 1 } },
     ]),
     getRbiBankRate(),
+    getRateHistory(),
   ])
 
   const outstanding = all.filter(i => i.status === 'outstanding')
@@ -252,7 +260,7 @@ router.get('/stats', async (req, res) => {
   const totalOutstanding = outstanding.reduce((s, i) => s + i.amount, 0)
   const totalOverdue = overdue.reduce((s, i) => s + i.amount, 0)
   const totalInterest = overdue.reduce((s, i) => {
-    const { totalInterest } = calculateInterest(i.amount, i.deliveryDate, i.agreedTermsDays, now, bankRate)
+    const { totalInterest } = calculateInterest(i.amount, i.deliveryDate, i.agreedTermsDays, now, bankRate, rateHistory)
     return s + totalInterest
   }, 0)
   const resolvedThisMonth = paidThisMonth.reduce((s, i) => s + i.amount, 0)
@@ -298,9 +306,9 @@ router.get('/:id/breakdown', async (req, res) => {
   if (!invoice) return res.status(404).json({ error: 'not found' })
   if (invoice.msmeId !== req.msmeId) return res.status(404).json({ error: 'not found' })
 
-  const bankRate = await getRbiBankRate()
+  const [bankRate, rateHistory] = await Promise.all([getRbiBankRate(), getRateHistory()])
   const { totalInterest, breakdown } = calculateInterest(
-    invoice.amount, invoice.deliveryDate, invoice.agreedTermsDays, new Date(), bankRate
+    invoice.amount, invoice.deliveryDate, invoice.agreedTermsDays, new Date(), bankRate, rateHistory
   )
   res.json({
     invoiceNumber: invoice.invoiceNumber,

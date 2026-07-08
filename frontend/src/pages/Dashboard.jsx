@@ -1,19 +1,13 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { InvoiceIcon, AddIcon, AlertIcon } from '../components/Icons'
+import StatCard from '../components/StatCard'
+import { AddIcon, AlertIcon } from '../components/Icons'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 
 export default function Dashboard({ nav }) {
   const [stats, setStats] = useState(null)
 
   useEffect(() => { api.get('/invoices/stats').then(setStats).catch(() => {}) }, [])
-
-  const cards = [
-    { label: 'Outstanding', value: stats ? `₹${stats.totalOutstanding.toLocaleString()}` : '—', sub: stats ? `${stats.outstandingCount} unpaid invoices` : '', color: 'text-slate-900', icon: <InvoiceIcon />, iconBg: 'text-slate-400' },
-    { label: 'Overdue', value: stats ? `${stats.overdueCount}` : '—', sub: stats ? `₹${stats.totalOverdue.toLocaleString()} at risk` : '', color: 'text-red-600', icon: <AlertIcon />, iconBg: 'text-red-400' },
-    { label: 'Interest Accrued', value: stats ? `₹${stats.totalInterest.toFixed(0)}` : '—', sub: 'Under Section 16, MSMED Act', color: 'text-amber-600', icon: <AlertIcon />, iconBg: 'text-amber-400' },
-    { label: 'Paid This Month', value: stats ? `₹${stats.resolvedThisMonth.toLocaleString()}` : '—', sub: 'resolved this month', color: 'text-emerald-600', icon: <InvoiceIcon />, iconBg: 'text-emerald-400' },
-  ]
 
   return (
     <div className="space-y-6">
@@ -36,16 +30,10 @@ export default function Dashboard({ nav }) {
       ) : (
         <>
           <div className="grid grid-cols-4 gap-4">
-            {cards.map(c => (
-              <div key={c.label} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-medium uppercase tracking-wider text-slate-500">{c.label}</p>
-                  <span className={c.iconBg}>{c.icon}</span>
-                </div>
-                <p className={`text-2xl font-bold ${c.color}`}>{c.value}</p>
-                <p className="text-xs text-slate-500 mt-0.5">{c.sub}</p>
-              </div>
-            ))}
+            <StatCard label="Outstanding" value={stats ? `₹${stats.totalOutstanding.toLocaleString()}` : '—'} sub={stats ? `${stats.outstandingCount} unpaid invoices` : ''} />
+            <StatCard label="Overdue" value={stats ? `${stats.overdueCount}` : '—'} sub={stats ? `₹${stats.totalOverdue.toLocaleString()} at risk` : ''} color="red" icon={<span>!</span>} />
+            <StatCard label="Interest Accrued" value={stats ? `₹${stats.totalInterest.toFixed(0)}` : '—'} sub="Under Section 16, MSMED Act" color="amber" icon={<span>%</span>} />
+            <StatCard label="Paid This Month" value={stats ? `₹${stats.resolvedThisMonth.toLocaleString()}` : '—'} sub="resolved this month" color="emerald" icon={<span>✓</span>} />
           </div>
 
           {stats.overdueCount > 0 && (

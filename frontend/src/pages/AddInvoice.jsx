@@ -207,10 +207,11 @@ export default function AddInvoice({ nav }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Delivery Date</label>
+            <label htmlFor="deliveryDate" className="block text-sm font-medium text-slate-700 mb-1">Delivery Date</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><CalendarIcon /></span>
               <input
+                id="deliveryDate"
                 className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition"
                 type="date"
                 value={form.deliveryDate}

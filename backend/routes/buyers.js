@@ -5,9 +5,9 @@ import { createNotification } from '../services/notify.js'
 const router = Router()
 
 router.get('/', async (req, res) => {
-  const q = req.query.q
+  const q = req.query.q?.slice(0, 50)
   const filter = { msmeId: req.msmeId }
-  if (q) filter.name = { $regex: q, $options: 'i' }
+  if (q) filter.name = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
   const buyers = await Buyer.find(filter).sort({ name: 1 }).limit(50)
   res.json(buyers)
 })
