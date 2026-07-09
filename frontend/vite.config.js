@@ -4,6 +4,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  build: { outDir: '../dist' }, // ponytail: root dist/ so Vercel auto-finds it
+  // ponytail: default outDir = frontend/dist, Vercel finds it via outputDirectory in vercel.json
   server: { proxy: { '/invoices': 'http://localhost:3000', '/users': 'http://localhost:3000', '/buyers': 'http://localhost:3000', '/notifications': 'http://localhost:3000', '/system': 'http://localhost:3000', '/health': 'http://localhost:3000' } },
 })
