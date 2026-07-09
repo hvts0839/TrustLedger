@@ -1,5 +1,15 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
-  "rewrites": [{ "source": "/:path+", "destination": "/api" }]
+  "functions": {
+    "api/**/*.js": { "maxDuration": 30 }
+  },
+  "rewrites": [
+    { "source": "/health", "destination": "/api" },
+    { "source": "/users(.*)", "destination": "/api" },
+    { "source": "/invoices(.*)", "destination": "/api" },
+    { "source": "/buyers(.*)", "destination": "/api" },
+    { "source": "/notifications(.*)", "destination": "/api" },
+    { "source": "/system(.*)", "destination": "/api" }
+  ]
 }
