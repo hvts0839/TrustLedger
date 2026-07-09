@@ -25,4 +25,14 @@ export const api = {
   post: (path, body) => request(path, { method: 'POST', body: JSON.stringify(body) }),
   patch: (path, body) => request(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (path) => request(path, { method: 'DELETE' }),
+  // ponytail: only used for PDF download — no JSON parse
+  getBlob: async (path) => {
+    const user = auth.currentUser
+    const token = user ? await user.getIdToken() : null
+    const res = await fetch(`${BASE}${path}`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+    if (!res.ok) throw new Error('failed')
+    return res.blob()
+  },
 }

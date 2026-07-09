@@ -207,18 +207,23 @@ router.post('/me', auth, async (req, res) => {
 })
 
 router.patch('/me', auth, async (req, res) => {
-  const allowed = ['name', 'companyName', 'udyamNumber', 'email', 'phone', 'profileComplete', 'emailReminders', 'dataSharing']
-  const updates = {}
-  for (const key of allowed) {
-    if (req.body[key] !== undefined) updates[key] = req.body[key]
+  try {
+    const allowed = ['name', 'companyName', 'udyamNumber', 'email', 'phone', 'profileComplete', 'emailReminders', 'dataSharing']
+    const updates = {}
+    for (const key of allowed) {
+      if (req.body[key] !== undefined) updates[key] = req.body[key]
+    }
+    const user = await User.findOneAndUpdate(
+      { firebaseUid: req.msmeId },
+      { $set: updates },
+      { upsert: true, new: true }
+    )
+    if (Object.keys(updates).length) createNotification(req.msmeId, 'Profile Updated', 'Your profile has been updated.', 'info')
+    res.json(user)
+  } catch (err) {
+    console.error('[PATCH /me]', err.message)
+    res.status(400).json({ error: err.message })
   }
-  const user = await User.findOneAndUpdate(
-    { firebaseUid: req.msmeId },
-    { $set: updates },
-    { upsert: true, new: true }
-  )
-  if (Object.keys(updates).length) createNotification(req.msmeId, 'Profile Updated', 'Your profile has been updated.', 'info')
-  res.json(user)
 })
 
 router.get('/pin/status', auth, async (req, res) => {
@@ -336,6 +341,16 @@ router.post('/log/verification-sent', auth, async (req, res) => {
 router.post('/log/verification-completed', auth, async (req, res) => {
   const user = await User.findOne({ firebaseUid: req.msmeId })
   console.log(`[EMAIL-VERIFICATION] Completed for ${user?.email || req.msmeId}`)
+  res.json({ ok: true })
+})
+
+router.post('/fcm-token', auth, async (req, res) => {
+  const { token } = req.body
+  if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' })
+  await User.updateOne(
+    { firebaseUid: req.msmeId },
+    { $addToSet: { fcmTokens: token } }
+  )
   res.json({ ok: true })
 })
 

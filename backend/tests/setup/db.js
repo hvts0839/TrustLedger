@@ -15,10 +15,7 @@ export async function disconnectDB() {
 }
 
 export async function clearDB() {
-  const collections = mongoose.connection.collections
-  for (const key in collections) {
-    await collections[key].deleteMany({})
-  }
+  await Promise.all(Object.values(mongoose.models).map(m => m.deleteMany({})))
 }
 
 // ─── Test JWT helpers ────────────────────────────────────────────────────

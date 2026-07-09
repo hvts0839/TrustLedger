@@ -98,8 +98,7 @@ describe('PATCH /users/me', () => {
     const res = await request.patch('/users/me').set(authHeader()).send({
       emailReminders: 'not-a-boolean',
     })
-    // Mongoose cast error should still save or error — depends on strict mode
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(400)
   })
 })
 

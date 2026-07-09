@@ -6,4 +6,5 @@ opencode.json
 *.log
 *-firebase-adminsdk-*.json
 frontend/src/firebase.js
+frontend/public/firebase-messaging-sw.js
 

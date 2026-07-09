@@ -8,13 +8,17 @@ beforeAll(connectDB)
 afterAll(disconnectDB)
 beforeEach(clearDB)
 
+function daysAgo(n) {
+  const d = new Date(); d.setDate(d.getDate() - n); return d
+}
+
 function makeInvoice(overrides = {}) {
   return Invoice.create({
     msmeId: TEST_MSME_ID,
     buyerName: 'Test Buyer',
     invoiceNumber: 'INV-TEST',
     amount: 10000,
-    deliveryDate: new Date('2024-06-01'),
+    deliveryDate: overrides.deliveryDate || daysAgo(46),  // 1 day overdue (45 day terms + 1 overdue)
     agreedTermsDays: 45,
     status: 'outstanding',
     ...overrides,

@@ -2,20 +2,18 @@
 // The auth middleware fetches Firebase certs from Google's API.
 // We mock fetch globally so tests never hit real Google endpoints.
 
+process.env.FIREBASE_PROJECT_ID = 'test-project'
+
 import crypto from 'crypto'
 
 const mockKid = 'test-kid'
-const mockPrivateKey = crypto.generateKeyPairSync('rsa', {
+const keyPair = crypto.generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-}).privateKey
-
-const mockPublicKey = crypto.generateKeyPairSync('rsa', {
-  modulusLength: 2048,
-  publicKeyEncoding: { type: 'spki', format: 'pem' },
-  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
-}).publicKey
+})
+const mockPrivateKey = keyPair.privateKey
+const mockPublicKey = keyPair.publicKey
 
 global.__MOCK_KEYS__ = { [mockKid]: mockPublicKey }
 global.__MOCK_PRIVATE_KEY__ = mockPrivateKey

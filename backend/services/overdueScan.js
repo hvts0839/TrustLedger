@@ -4,6 +4,7 @@ import User from '../models/User.js'
 import { sendAlertEmail, buildOverdueEmail } from './mail.js'
 import { calculateInterestSync } from './interest.js'
 import { createNotification } from './notify.js'
+import { daysOverdue, stageForDays, transitionTo, STAGES } from './escalation.js'
 
 export function startOverdueScan() {
   cron.schedule('0 8 * * *', async () => {
@@ -17,7 +18,7 @@ export async function runOverdueScan() {
   const start = Date.now()
   const now = new Date()
   let scanned = 0
-  let newlyFlagged = 0
+  let stageChanges = 0
   let emailsSent = 0
   let errors = 0
 
@@ -27,32 +28,33 @@ export async function runOverdueScan() {
     for (const inv of invoices) {
       scanned++
       try {
-        const due = new Date(inv.deliveryDate)
-        due.setDate(due.getDate() + inv.agreedTermsDays)
+        const overdue = daysOverdue(inv.deliveryDate, inv.agreedTermsDays, now)
+        if (overdue <= 0) continue
 
-        if (due >= now) continue
+        const targetStage = stageForDays(overdue)
+        if (targetStage <= inv.escalationStage) continue  // already at or past this stage
 
-        const lastNotified = inv.lastOverdueNotifiedAt ? new Date(inv.lastOverdueNotifiedAt) : null
-        const alreadyNotifiedToday = lastNotified && isSameDay(lastNotified, now)
+        stageChanges++
+        const updates = transitionTo(inv, targetStage, now)
+        await Invoice.findByIdAndUpdate(inv._id, { $set: updates })
 
-        if (!alreadyNotifiedToday) {
-          newlyFlagged++
-            await Invoice.findByIdAndUpdate(inv._id, {
-              $set: { lastOverdueNotifiedAt: now, escalationStage: inv.escalationStage ? inv.escalationStage + 1 : 1 }
-            })
-            await createNotification(
-              inv.msmeId,
-              'Invoice Overdue',
-              `${inv.buyerName} — ${inv.invoiceNumber || 'No ref'} (₹${inv.amount.toLocaleString('en-IN')}) is overdue today.`,
-              'warning',
-              inv._id
-            )
+        // ponytail: same notification for all stages; could differentiate copy per stage
+        await createNotification(
+          inv.msmeId,
+          `Invoice ${STAGES[targetStage]}`,
+          `${inv.buyerName} — ${inv.invoiceNumber || 'No ref'} (₹${inv.amount.toLocaleString('en-IN')}) — ${STAGES[targetStage].toLowerCase()} stage.`,
+          targetStage >= 2 ? 'error' : 'warning',
+          inv._id
+        )
 
+        if (targetStage === 1) {
           const user = await User.findOne({ firebaseUid: inv.msmeId })
           if (user && user.emailReminders && user.email) {
             const { totalInterest } = calculateInterestSync(
               inv.amount, inv.deliveryDate, inv.agreedTermsDays, now
             )
+            const due = new Date(inv.deliveryDate)
+            due.setDate(due.getDate() + inv.agreedTermsDays)
             const { subject, text } = buildOverdueEmail(
               user.name || 'Valued User',
               inv.buyerName,
@@ -77,7 +79,7 @@ export async function runOverdueScan() {
 
   const elapsed = Date.now() - start
   console.log(
-    `[OVERDUE-SCAN] Complete — scanned: ${scanned}, newly flagged: ${newlyFlagged}, ` +
+    `[OVERDUE-SCAN] Complete — scanned: ${scanned}, stage changes: ${stageChanges}, ` +
     `emails sent: ${emailsSent}, errors: ${errors}, duration: ${elapsed}ms`
   )
 }

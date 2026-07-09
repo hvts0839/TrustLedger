@@ -1,8 +1,13 @@
 import { Router } from 'express'
 import Buyer from '../models/Buyer.js'
+import Invoice from '../models/Invoice.js'
 import { createNotification } from '../services/notify.js'
+import { calculateBuyerScore } from '../services/reliability.js'
+import auth from '../middleware/auth.js'
 
 const router = Router()
+
+router.use(auth)
 
 router.get('/', async (req, res) => {
   const q = req.query.q?.slice(0, 50)
@@ -32,6 +37,20 @@ router.patch('/:id', async (req, res) => {
   await buyer.save()
   createNotification(req.msmeId, 'Buyer Updated', `${buyer.name}'s details have been updated.`, 'info')
   res.json(buyer)
+})
+
+router.get('/:id/reliability', async (req, res) => {
+  const buyer = await Buyer.findOne({ _id: req.params.id, msmeId: req.msmeId })
+  if (!buyer) return res.status(404).json({ error: 'not found' })
+  const reliability = await calculateBuyerScore(req.msmeId, buyer._id)
+  res.json({ buyerId: buyer._id, buyerName: buyer.name, ...reliability })
+})
+
+router.get('/:id/invoices', async (req, res) => {
+  const buyer = await Buyer.findOne({ _id: req.params.id, msmeId: req.msmeId })
+  if (!buyer) return res.status(404).json({ error: 'not found' })
+  const invoices = await Invoice.find({ msmeId: req.msmeId, buyerId: buyer._id }).sort({ createdAt: -1 }).limit(50)
+  res.json(invoices)
 })
 
 router.delete('/:id', async (req, res) => {

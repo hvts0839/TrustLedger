@@ -5,9 +5,26 @@ import { BackIcon, CheckIcon, AlertIcon, CalendarIcon } from '../components/Icon
 
 export default function InvoiceDetail({ id, nav }) {
   const [inv, setInv] = useState(null)
+  const [timeline, setTimeline] = useState(null)
   const [marking, setMarking] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
-  useEffect(() => { api.get(`/invoices/${id}`).then(setInv).catch(() => nav('dashboard')) }, [id, nav])
+  useEffect(() => {
+    api.get(`/invoices/${id}`).then(setInv).catch(() => nav('dashboard'))
+    api.get(`/invoices/${id}/timeline`).then(setTimeline).catch(() => {})
+  }, [id, nav])
+
+  async function downloadNotice() {
+    setGenerating(true)
+    try {
+      const blob = await api.getBlob(`/invoices/${id}/notice`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `notice-${inv?.invoiceNumber || id}.pdf`; a.click()
+      URL.revokeObjectURL(url)
+    } catch {}
+    setGenerating(false)
+  }
 
   if (!inv) {
     return (
@@ -72,6 +89,20 @@ export default function InvoiceDetail({ id, nav }) {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {timeline && timeline.status === 'outstanding' && timeline.escalationStage >= 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Escalation Status</p>
+          <p className="text-sm font-medium text-slate-900">
+            Current stage: {timeline.escalationLabel} &mdash; Day {timeline.overdueDays}
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {timeline.reminderSentAt ? `Reminder sent: ${new Date(timeline.reminderSentAt).toLocaleDateString('en-IN')}` : 'Reminder not yet sent'}
+            {timeline.noticeSentAt ? ` · Notice sent: ${new Date(timeline.noticeSentAt).toLocaleDateString('en-IN')}` : ''}
+            {timeline.resolutionDate ? ` · Escalated: ${new Date(timeline.resolutionDate).toLocaleDateString('en-IN')}` : ''}
+          </p>
         </div>
       )}
 
@@ -207,6 +238,15 @@ export default function InvoiceDetail({ id, nav }) {
           >
             Delete
           </button>
+          {timeline?.escalationStage >= 2 && (
+            <button
+              onClick={downloadNotice}
+              disabled={generating}
+              className="ml-auto flex items-center gap-2 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition-colors"
+            >
+              {generating ? 'Generating...' : 'Generate Notice'}
+            </button>
+          )}
         </div>
       )}
 

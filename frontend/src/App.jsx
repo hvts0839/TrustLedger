@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from './firebase'
+import { getToken, onMessage } from 'firebase/messaging'
+import { auth, messaging } from './firebase'
 import { api } from './api'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -12,6 +13,7 @@ import Transactions from './pages/Transactions'
 import Interest from './pages/Interest'
 import AddInvoice from './pages/AddInvoice'
 import InvoiceDetail from './pages/InvoiceDetail'
+import BuyerDetail from './pages/BuyerDetail'
 import Profile from './pages/Profile'
 import Settings from './pages/Settings'
 import Landing from './pages/Landing'
@@ -37,6 +39,18 @@ export default function App() {
   const [checkingPin, setCheckingPin] = useState(false)
   const [forgotPinMode, setForgotPinMode] = useState(false)
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false)
+
+  useEffect(() => {
+    const unsub = onMessage(messaging, (payload) => {
+      const { title, body } = payload.notification || {}
+      const data = payload.data || {}
+      if (title) {
+        const n = new Notification(title, { body: body || '', icon: '/favicon.svg', data })
+        n.onclick = () => { window.focus(); const { route, id } = data; route === 'invoice' && id && nav('invoiceDetail', id) }
+      }
+    })
+    return unsub
+  }, [])
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (u) => {
@@ -76,6 +90,16 @@ export default function App() {
           }
         } catch {
           setPage('profile')
+        }
+        if ('Notification' in window && 'serviceWorker' in navigator) {
+          const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission()
+          if (permission === 'granted') {
+            try {
+              const reg = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+              const token = await getToken(messaging, { vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY, serviceWorkerRegistration: reg })
+              if (token) api.post('/users/fcm-token', { token }).catch(() => {})
+            } catch {}
+          }
         }
       }
     })
@@ -191,6 +215,7 @@ export default function App() {
           {page === 'interest' && <Interest nav={nav} />}
           {page === 'addInvoice' && <AddInvoice nav={nav} />}
           {page === 'invoiceDetail' && <InvoiceDetail id={selectedId} nav={nav} />}
+          {page === 'buyerDetail' && <BuyerDetail id={selectedId} nav={nav} />}
         </div>
       </main>
     </div>

@@ -2,8 +2,16 @@ import { Router } from 'express'
 import Invoice from '../models/Invoice.js'
 import { calculateInterest, getRbiBankRate, getRateHistory } from '../services/interest.js'
 import { createNotification } from '../services/notify.js'
+import { daysOverdue, stageForDays, STAGES } from '../services/escalation.js'
+import { generateNoticePDF } from '../services/pdf.js'
+import User from '../models/User.js'
+import SystemConfig from '../models/SystemConfig.js'
 
 const router = Router()
+
+function wrapAsync(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next)
+}
 
 function overdueFilter() {
   const now = new Date()
@@ -101,61 +109,68 @@ function validateInvoice(body, isPatch) {
   return { errors: null, picked }
 }
 
-router.get('/', async (req, res) => {
+router.get('/', wrapAsync(async (req, res) => {
   const { filter, sort, skip, limit } = buildQuery({ msmeId: req.msmeId }, req.query)
   const [data, total] = await Promise.all([
     Invoice.find(filter).sort(sort).skip(skip).limit(limit),
     Invoice.countDocuments(filter),
   ])
   res.json(paginatedResponse(data, total, skip / (limit || 1) + 1, limit))
-})
+}))
 
-router.get('/overdue', async (req, res) => {
-  const now = new Date()
-  const { buyer, amountMin, amountMax, dateFrom, dateTo, daysOverdueMin, daysOverdueMax, sortBy, sortOrder, page, limit } = req.query
-  const pageNum = Math.max(1, parseInt(page) || 1)
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50))
+router.get('/overdue', wrapAsync(async (req, res) => {
+  try {
+    const now = new Date()
+    const { buyer, amountMin, amountMax, dateFrom, dateTo, daysOverdueMin, daysOverdueMax, sortBy, sortOrder, page, limit } = req.query
+    const pageNum = Math.max(1, parseInt(page) || 1)
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50))
 
-  const baseFilter = { msmeId: req.msmeId, status: 'outstanding' }
-  if (buyer) baseFilter.buyerName = { $regex: buyer, $options: 'i' }
-  if (amountMin || amountMax) { baseFilter.amount = {}; if (amountMin) baseFilter.amount.$gte = Number(amountMin); if (amountMax) baseFilter.amount.$lte = Number(amountMax) }
+    const baseFilter = { msmeId: req.msmeId, status: 'outstanding' }
+    if (buyer) baseFilter.buyerName = { $regex: buyer, $options: 'i' }
+    if (amountMin || amountMax) { baseFilter.amount = {}; if (amountMin) baseFilter.amount.$gte = Number(amountMin); if (amountMax) baseFilter.amount.$lte = Number(amountMax) }
 
-  const all = await Invoice.find(baseFilter).lean()
-  const [bankRate, rateHistory] = await Promise.all([getRbiBankRate(), getRateHistory()])
-  let overdue = all.filter(inv => {
-    const due = new Date(inv.deliveryDate)
-    due.setDate(due.getDate() + inv.agreedTermsDays)
-    return due < now
-  })
+    const all = await Invoice.find(baseFilter).lean()
+    const config = await SystemConfig.getConfig()
+    const bankRate = config.rbiBankRate
+    const rateHistory = config.rateHistory || []
+    let overdue = all.filter(inv => {
+      const due = new Date(inv.deliveryDate)
+      due.setDate(due.getDate() + inv.agreedTermsDays)
+      return due < now
+    })
 
-  if (dateFrom) overdue = overdue.filter(inv => new Date(inv.deliveryDate) >= new Date(dateFrom))
-  if (dateTo) overdue = overdue.filter(inv => new Date(inv.deliveryDate) <= new Date(dateTo))
-  if (daysOverdueMin) { const m = Number(daysOverdueMin); overdue = overdue.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) >= m }) }
-  if (daysOverdueMax) { const m = Number(daysOverdueMax); overdue = overdue.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) <= m }) }
+    if (dateFrom) overdue = overdue.filter(inv => new Date(inv.deliveryDate) >= new Date(dateFrom))
+    if (dateTo) overdue = overdue.filter(inv => new Date(inv.deliveryDate) <= new Date(dateTo))
+    if (daysOverdueMin) { const m = Number(daysOverdueMin); overdue = overdue.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) >= m }) }
+    if (daysOverdueMax) { const m = Number(daysOverdueMax); overdue = overdue.filter(inv => { const due = new Date(inv.deliveryDate); due.setDate(due.getDate() + inv.agreedTermsDays); return Math.floor((now - due) / 86400000) <= m }) }
 
-  overdue = overdue.map(inv => {
-    const { totalInterest } = calculateInterest(inv.amount, inv.deliveryDate, inv.agreedTermsDays, now, bankRate, rateHistory)
-    return { ...inv, interestAccrued: totalInterest }
-  })
+    overdue = overdue.map(inv => {
+      const { totalInterest } = calculateInterest(inv.amount, inv.deliveryDate, inv.agreedTermsDays, now, bankRate, rateHistory)
+      return { ...inv, interestAccrued: totalInterest }
+    })
 
-  const sBy = sortBy || 'deliveryDate'
-  const sOrd = sortOrder === 'asc' ? 1 : -1
-  overdue.sort((a, b) => {
-    const dueA = new Date(a.deliveryDate); dueA.setDate(dueA.getDate() + a.agreedTermsDays)
-    const dueB = new Date(b.deliveryDate); dueB.setDate(dueB.getDate() + b.agreedTermsDays)
-    if (sBy === 'amount') return (a.amount - b.amount) * sOrd
-    if (sBy === 'buyerName') return a.buyerName.localeCompare(b.buyerName) * sOrd
-    if (sBy === 'deliveryDate' || sBy === 'dueDate') return (dueA - dueB) * sOrd
-    if (sBy === 'daysOverdue') return ((now - dueA) - (now - dueB)) * sOrd
-    return (dueA - dueB) * sOrd
-  })
+    const sBy = sortBy || 'deliveryDate'
+    const sOrd = sortOrder === 'asc' ? 1 : -1
+    overdue.sort((a, b) => {
+      const dueA = new Date(a.deliveryDate); dueA.setDate(dueA.getDate() + a.agreedTermsDays)
+      const dueB = new Date(b.deliveryDate); dueB.setDate(dueB.getDate() + b.agreedTermsDays)
+      if (sBy === 'amount') return (a.amount - b.amount) * sOrd
+      if (sBy === 'buyerName') return a.buyerName.localeCompare(b.buyerName) * sOrd
+      if (sBy === 'deliveryDate' || sBy === 'dueDate') return (dueA - dueB) * sOrd
+      if (sBy === 'daysOverdue') return ((now - dueA) - (now - dueB)) * sOrd
+      return (dueA - dueB) * sOrd
+    })
 
-  const total = overdue.length
-  const paged = overdue.slice((pageNum - 1) * limitNum, pageNum * limitNum)
-  res.json(paginatedResponse(paged, total, pageNum, limitNum))
-})
+    const total = overdue.length
+    const paged = overdue.slice((pageNum - 1) * limitNum, pageNum * limitNum)
+    res.json(paginatedResponse(paged, total, pageNum, limitNum))
+  } catch(err) {
+    console.error('[overdue route]', err.message, err.stack?.split('\n')[1])
+    throw err
+  }
+}))
 
-router.get('/outstanding', async (req, res) => {
+router.get('/outstanding', wrapAsync(async (req, res) => {
   const q = { ...req.query, status: 'outstanding' }
   const { filter, sort, skip, limit } = buildQuery({ msmeId: req.msmeId, status: 'outstanding' }, q)
   const [data, total] = await Promise.all([
@@ -163,7 +178,7 @@ router.get('/outstanding', async (req, res) => {
     Invoice.countDocuments(filter),
   ])
   res.json(paginatedResponse(data, total, skip / (limit || 1) + 1, limit))
-})
+}))
 
 router.get('/transactions', async (req, res) => {
   const q = { ...req.query, status: 'paid' }
@@ -282,23 +297,66 @@ router.get('/stats', async (req, res) => {
   res.json({ totalOutstanding, totalOverdue, totalInterest, resolvedThisMonth, overdueCount: overdue.length, outstandingCount: outstanding.length, monthlyData })
 })
 
-router.post('/', async (req, res) => {
-  const { errors, picked } = validateInvoice(req.body, false)
-  if (errors) {
-    return res.status(400).json({ error: 'Validation failed', fields: errors })
+router.post('/', wrapAsync(async (req, res) => {
+  try {
+    const { errors, picked } = validateInvoice(req.body, false)
+    if (errors) {
+      return res.status(400).json({ error: 'Validation failed', fields: errors })
+    }
+    const invoice = await Invoice.create({ ...picked, msmeId: req.msmeId })
+    createNotification(req.msmeId, 'Invoice Created',
+      `${invoice.buyerName} — ${invoice.invoiceNumber || 'No ref'} (₹${invoice.amount.toLocaleString('en-IN')}) logged.`,
+      'info', invoice._id).catch(() => {})
+    res.status(201).json(invoice)
+  } catch (err) {
+    console.error('[POST /invoices]', err.message)
+    res.status(500).json({ error: err.message })
   }
-  const invoice = await Invoice.create({ ...picked, msmeId: req.msmeId })
-  createNotification(req.msmeId, 'Invoice Created',
-    `${invoice.buyerName} — ${invoice.invoiceNumber || 'No ref'} (₹${invoice.amount.toLocaleString('en-IN')}) logged.`,
-    'info', invoice._id)
-  res.status(201).json(invoice)
-})
+}))
 
 router.get('/:id', async (req, res) => {
   const invoice = await Invoice.findById(req.params.id)
   if (!invoice) return res.status(404).json({ error: 'not found' })
   if (invoice.msmeId !== req.msmeId) return res.status(404).json({ error: 'not found' })
   res.json(invoice)
+})
+
+router.get('/:id/timeline', async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id)
+  if (!invoice) return res.status(404).json({ error: 'not found' })
+  if (invoice.msmeId !== req.msmeId) return res.status(404).json({ error: 'not found' })
+
+  const now = new Date()
+  const overdueDays = invoice.status === 'paid' ? 0 : daysOverdue(invoice.deliveryDate, invoice.agreedTermsDays, now)
+  const stage = invoice.status === 'paid' ? -1 : stageForDays(overdueDays)
+  res.json({
+    invoiceId: invoice._id,
+    status: invoice.status,
+    escalationStage: stage,
+    escalationLabel: stage === -1 ? 'Resolved' : STAGES[stage],
+    overdueDays,
+    overdueSince: (() => { const d = new Date(invoice.deliveryDate); d.setDate(d.getDate() + invoice.agreedTermsDays); return invoice.status === 'outstanding' ? d : null })(),
+    reminderSentAt: invoice.lastOverdueNotifiedAt,
+    noticeSentAt: invoice.overdueNoticeSentAt,
+    resolutionDate: invoice.resolutionDate,
+  })
+})
+
+router.get('/:id/notice', async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id)
+  if (!invoice) return res.status(404).json({ error: 'not found' })
+  if (invoice.msmeId !== req.msmeId) return res.status(404).json({ error: 'not found' })
+
+  const user = await User.findOne({ firebaseUid: req.msmeId })
+  const pdf = await generateNoticePDF(invoice, user || {})
+
+  // ponytail: generates on-demand every time — caching not needed for low-volume SMB app
+  res.set({
+    'Content-Type': 'application/pdf',
+    'Content-Disposition': `attachment; filename="notice-${invoice.invoiceNumber || invoice._id}.pdf"`,
+    'Content-Length': pdf.length,
+  })
+  res.send(pdf)
 })
 
 router.get('/:id/breakdown', async (req, res) => {
@@ -333,7 +391,7 @@ router.patch('/:id', async (req, res) => {
     return res.status(400).json({ error: 'No valid fields to update' })
   }
 
-  const updated = await Invoice.findByIdAndUpdate(req.params.id, picked, { new: true })
+  const updated = await Invoice.findByIdAndUpdate(req.params.id, { ...picked, ...(picked.status === 'paid' && invoice.status !== 'paid' ? { resolutionDate: new Date() } : {}) }, { new: true })
   if (picked.status === 'paid' && invoice.status !== 'paid') {
     createNotification(req.msmeId, 'Invoice Paid',
       `${updated.buyerName} — ${updated.invoiceNumber || 'No ref'} (₹${updated.amount.toLocaleString('en-IN')}) marked as paid.`,

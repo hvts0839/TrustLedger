@@ -90,7 +90,7 @@ export default function Overdue({ nav }) {
                     return (
                       <tr key={inv._id} className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => nav('invoiceDetail', inv._id)}>
                         <td className="px-5 py-3.5 font-medium text-slate-900">{inv.invoiceNumber}</td>
-                        <td className="px-5 py-3.5 text-slate-600">{inv.buyerName}</td>
+                        <td className="px-5 py-3.5"><button onClick={e => { e.stopPropagation(); nav('buyerDetail', inv.buyerId) }} className="text-teal-600 hover:text-teal-700 font-medium">{inv.buyerName}</button></td>
                         <td className="px-5 py-3.5 text-right font-medium text-slate-900">₹{inv.amount.toLocaleString()}</td>
                         <td className="px-5 py-3.5 text-slate-600">{dueDate.toLocaleDateString('en-IN')}</td>
                         <td className="px-5 py-3.5"><span className="text-red-600 font-medium">{daysOverdue}d</span></td>

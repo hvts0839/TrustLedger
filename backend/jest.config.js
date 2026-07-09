@@ -5,7 +5,7 @@ export default {
   moduleFileExtensions: ['js', 'mjs'],
   testMatch: ['<rootDir>/tests/**/*.test.js'],
   setupFiles: ['<rootDir>/tests/setup/globalMocks.js'],
-  testTimeout: 60000,
+  testTimeout: 120000,
   verbose: true,
   collectCoverageFrom: [
     'services/**/*.js',

@@ -24,6 +24,7 @@ vi.mock('../firebase', () => {
         return mockUnsubscribe
       }),
     },
+    messaging: {},
   }
 })
 

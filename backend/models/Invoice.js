@@ -12,6 +12,8 @@ const invoiceSchema = new mongoose.Schema({
   status: { type: String, enum: ['outstanding', 'paid'], default: 'outstanding' },
   escalationStage: { type: Number, default: 0 },
   lastOverdueNotifiedAt: { type: Date },
+  overdueNoticeSentAt: { type: Date },
+  resolutionDate: { type: Date },
   buyerAddress: { type: String, default: '' },
   invoiceDate: { type: Date },
   workDescription: { type: String, default: '' },
