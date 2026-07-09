@@ -25,5 +25,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node --check backend/server.js
+      - run: node --check server.js
         working-directory: backend
