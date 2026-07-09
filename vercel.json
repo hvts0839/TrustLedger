@@ -1,9 +1,15 @@
 {
-  "buildCommand": false,
-  "devCommand": false,
-  "installCommand": "npm install",
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/dist",
   "functions": {
     "api/**/*.js": { "maxDuration": 30 }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+  "rewrites": [
+    { "source": "/health", "destination": "/api" },
+    { "source": "/users/(.*)", "destination": "/api" },
+    { "source": "/invoices/(.*)", "destination": "/api" },
+    { "source": "/buyers/(.*)", "destination": "/api" },
+    { "source": "/notifications/(.*)", "destination": "/api" },
+    { "source": "/system/(.*)", "destination": "/api" }
+  ]
 }
