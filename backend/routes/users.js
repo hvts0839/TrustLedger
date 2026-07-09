@@ -8,6 +8,10 @@ const { createNotification } = require('../services/notify.js')
 
 const router = Router()
 
+function wrapAsync(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next)
+}
+
 const LOCKOUT_THRESHOLD = 5
 const LOCKOUT_DURATION_MS = 30 * 60 * 1000
 const CAPTCHA_ATTEMPT_THRESHOLD = 3
@@ -63,7 +67,7 @@ async function verifyCaptcha(token) {
   }
 }
 
-router.post('/check-lockout', async (req, res) => {
+router.post('/check-lockout', wrapAsync(async (req, res) => {
   try {
     const email = sanitizeString(req.body.email, 256)
     if (!email) return res.json({ locked: false, captchaRequired: ipNeedsCaptcha(req.ip) })
@@ -87,9 +91,9 @@ router.post('/check-lockout', async (req, res) => {
     console.error('[SECURITY] check-lockout error:', err.message)
     res.json({ locked: false, captchaRequired: false })
   }
-})
+}))
 
-router.post('/record-failed-attempt', async (req, res) => {
+router.post('/record-failed-attempt', wrapAsync(async (req, res) => {
   try {
     const email = sanitizeString(req.body.email, 256)
     if (!email) return res.json({ ok: true })
@@ -118,9 +122,9 @@ router.post('/record-failed-attempt', async (req, res) => {
     console.error('[SECURITY] record-failed-attempt error:', err.message)
     res.json({ ok: true })
   }
-})
+}))
 
-router.post('/reset-attempts', async (req, res) => {
+router.post('/reset-attempts', wrapAsync(async (req, res) => {
   try {
     const email = sanitizeString(req.body.email, 256)
     if (!email) return res.json({ ok: true })
@@ -153,9 +157,9 @@ router.post('/reset-attempts', async (req, res) => {
     console.error('[SECURITY] reset-attempts error:', err.message)
     res.json({ ok: true })
   }
-})
+}))
 
-router.post('/verify-captcha', async (req, res) => {
+router.post('/verify-captcha', wrapAsync(async (req, res) => {
   try {
     const { token } = req.body
     if (!token) return res.status(400).json({ error: 'CAPTCHA token required' })
@@ -172,7 +176,7 @@ router.post('/verify-captcha', async (req, res) => {
     console.error('[CAPTCHA] Error:', err.message)
     res.status(500).json({ error: 'CAPTCHA verification failed' })
   }
-})
+}))
 
 function hashPin(pin) {
   const salt = crypto.randomBytes(16).toString('hex')
@@ -186,13 +190,13 @@ function verifyPin(pin, stored) {
   return check === hash
 }
 
-router.get('/me', auth, async (req, res) => {
+router.get('/me', auth, wrapAsync(async (req, res) => {
   let user = await User.findOne({ firebaseUid: req.msmeId })
   if (!user) return res.status(404).json({ error: 'not found' })
   res.json(user)
-})
+}))
 
-router.post('/me', auth, async (req, res, next) => {
+router.post('/me', auth, wrapAsync(async (req, res, next) => {
   try {
     const existing = await User.findOne({ firebaseUid: req.msmeId })
     if (existing) return res.json(existing)
@@ -208,9 +212,9 @@ router.post('/me', auth, async (req, res, next) => {
   } catch (err) {
     next(err)
   }
-})
+}))
 
-router.patch('/me', auth, async (req, res) => {
+router.patch('/me', auth, wrapAsync(async (req, res) => {
   try {
     const allowed = ['name', 'companyName', 'udyamNumber', 'email', 'phone', 'profileComplete', 'emailReminders', 'dataSharing']
     const updates = {}
@@ -228,14 +232,14 @@ router.patch('/me', auth, async (req, res) => {
     console.error('[PATCH /me]', err.message)
     res.status(400).json({ error: err.message })
   }
-})
+}))
 
-router.get('/pin/status', auth, async (req, res) => {
+router.get('/pin/status', auth, wrapAsync(async (req, res) => {
   const user = await User.findOne({ firebaseUid: req.msmeId })
   res.json({ hasPin: !!user?.pinHash })
-})
+}))
 
-router.post('/pin/set', auth, async (req, res) => {
+router.post('/pin/set', auth, wrapAsync(async (req, res) => {
   const { pin } = req.body
   if (!pin || !/^\d{4}$/.test(pin)) return res.status(400).json({ error: 'PIN must be exactly 4 digits' })
 
@@ -252,9 +256,9 @@ router.post('/pin/set', auth, async (req, res) => {
   createNotification(req.msmeId, 'PIN Set', 'Your security PIN has been set successfully.', 'success')
   console.log(`[PIN] Set successfully for UID ${req.msmeId}`)
   res.json({ ok: true })
-})
+}))
 
-router.post('/pin/verify', auth, async (req, res) => {
+router.post('/pin/verify', auth, wrapAsync(async (req, res) => {
   const { pin } = req.body
   if (!pin || !/^\d{4}$/.test(pin)) return res.status(400).json({ error: 'PIN must be exactly 4 digits' })
 
@@ -283,9 +287,9 @@ router.post('/pin/verify', auth, async (req, res) => {
   }
   await user.save()
   res.status(401).json({ error: `Incorrect PIN. ${5 - user.pinAttempts} attempts remaining.` })
-})
+}))
 
-router.post('/pin/change', auth, async (req, res) => {
+router.post('/pin/change', auth, wrapAsync(async (req, res) => {
   const { currentPin, newPin } = req.body
   if (!newPin || !/^\d{4}$/.test(newPin)) return res.status(400).json({ error: 'New PIN must be exactly 4 digits' })
 
@@ -306,9 +310,9 @@ router.post('/pin/change', auth, async (req, res) => {
     sendAlertEmail({ to: user.email, subject, text })
   }
   res.json({ ok: true })
-})
+}))
 
-router.post('/pin/reset', auth, async (req, res) => {
+router.post('/pin/reset', auth, wrapAsync(async (req, res) => {
   const { pin, captchaToken } = req.body
   if (!pin || !/^\d{4}$/.test(pin)) return res.status(400).json({ error: 'PIN must be exactly 4 digits' })
 
@@ -335,20 +339,20 @@ router.post('/pin/reset', auth, async (req, res) => {
     sendAlertEmail({ to: user.email, subject, text })
   }
   res.json({ ok: true })
-})
+}))
 
-router.post('/log/verification-sent', auth, async (req, res) => {
+router.post('/log/verification-sent', auth, wrapAsync(async (req, res) => {
   console.log(`[EMAIL-VERIFICATION] Sent to UID ${req.msmeId}`)
   res.json({ ok: true })
-})
+}))
 
-router.post('/log/verification-completed', auth, async (req, res) => {
+router.post('/log/verification-completed', auth, wrapAsync(async (req, res) => {
   const user = await User.findOne({ firebaseUid: req.msmeId })
   console.log(`[EMAIL-VERIFICATION] Completed for ${user?.email || req.msmeId}`)
   res.json({ ok: true })
-})
+}))
 
-router.post('/fcm-token', auth, async (req, res) => {
+router.post('/fcm-token', auth, wrapAsync(async (req, res) => {
   const { token } = req.body
   if (!token || typeof token !== 'string') return res.status(400).json({ error: 'token required' })
   await User.updateOne(
@@ -356,7 +360,7 @@ router.post('/fcm-token', auth, async (req, res) => {
     { $addToSet: { fcmTokens: token } }
   )
   res.json({ ok: true })
-})
+}))
 
 // ─── OTP Routes ──────────────────────────────────────────────────────────────
 
@@ -371,7 +375,7 @@ function hashOtp(code) {
   return crypto.createHash('sha256').update(code).digest('hex')
 }
 
-router.post('/send-otp', auth, async (req, res) => {
+router.post('/send-otp', auth, wrapAsync(async (req, res) => {
   try {
     const user = await User.findOne({ firebaseUid: req.msmeId })
     if (!user) return res.status(404).json({ error: 'User not found' })
@@ -403,9 +407,9 @@ router.post('/send-otp', auth, async (req, res) => {
     console.error('[OTP] send-otp error:', err.message)
     res.status(500).json({ error: 'Failed to send OTP' })
   }
-})
+}))
 
-router.post('/verify-otp', auth, async (req, res) => {
+router.post('/verify-otp', auth, wrapAsync(async (req, res) => {
   try {
     const { code } = req.body
     if (!code || !/^\d{6}$/.test(code)) {
@@ -456,6 +460,6 @@ router.post('/verify-otp', auth, async (req, res) => {
     console.error('[OTP] verify-otp error:', err.message)
     res.status(500).json({ error: 'Verification failed' })
   }
-})
+}))
 
 module.exports = router

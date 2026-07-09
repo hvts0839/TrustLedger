@@ -4,7 +4,11 @@ const auth = require('../middleware/auth.js')
 
 const router = Router()
 
-router.get('/config', auth, async (req, res) => {
+function wrapAsync(fn) {
+  return (req, res, next) => fn(req, res, next).catch(next)
+}
+
+router.get('/config', auth, wrapAsync(async (req, res) => {
   const config = await SystemConfig.getConfig()
   res.json({
     rbiBankRate: config.rbiBankRate,
@@ -13,9 +17,9 @@ router.get('/config', auth, async (req, res) => {
     rbiRatePreviousValue: config.rbiRatePreviousValue,
     rbiRateLastChecked: config.rbiRateLastChecked,
   })
-})
+}))
 
-router.patch('/config/bank-rate', auth, async (req, res) => {
+router.patch('/config/bank-rate', auth, wrapAsync(async (req, res) => {
   const { rbiBankRate } = req.body
   if (rbiBankRate === undefined || typeof rbiBankRate !== 'number') {
     return res.status(400).json({ error: 'rbiBankRate must be a number' })
@@ -29,14 +33,14 @@ router.patch('/config/bank-rate', auth, async (req, res) => {
   await config.save()
   console.log(`[SYSTEM] RBI Bank Rate updated to ${rbiBankRate}% by user ${req.msmeId}`)
   res.json({ ok: true, rbiBankRate: config.rbiBankRate, lastUpdated: config.lastUpdated })
-})
+}))
 
-router.post('/config/acknowledge-rate-flag', auth, async (req, res) => {
+router.post('/config/acknowledge-rate-flag', auth, wrapAsync(async (req, res) => {
   const config = await SystemConfig.getConfig()
   config.rbiRateChangeFlagged = false
   config.rbiRatePreviousValue = null
   await config.save()
   res.json({ ok: true })
-})
+}))
 
 module.exports = router

@@ -14,7 +14,7 @@ function startRbiRateCheck() {
   console.log('[RBI-RATE] Scheduled: weekly on Monday at 10:00')
 }
 
-export async function checkRbiRate() {
+async function checkRbiRate() {
   try {
     const fetchedRate = await fetchRbiRate()
     if (fetchedRate === null) {
