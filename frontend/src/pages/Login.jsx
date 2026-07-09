@@ -126,6 +126,7 @@ export default function Login({ initialMode, onBack, onSwitchToRegister }) {
       provider.setCustomParameters({ prompt: 'select_account' })
       await signInWithPopup(auth, provider)
     } catch (err) {
+      console.error('[Google sign-in]', err.code, err.message)
       setError(friendlyFirebaseError(err.message))
       setGoogleLoading(false)
     }

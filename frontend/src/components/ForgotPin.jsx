@@ -37,7 +37,8 @@ export default function ForgotPin({ onBack, onComplete }) {
       provider.setCustomParameters({ prompt: 'select_account' })
       await signInWithPopup(auth, provider)
       setMethod('reset')
-    } catch {
+    } catch (err) {
+      console.error('[Google re-auth]', err.code, err.message)
       setError('Google re-verification was cancelled or failed. Please try again.')
     } finally {
       setLoading(false)

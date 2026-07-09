@@ -99,6 +99,7 @@ export default function Register({ onBack, onSwitchToLogin }) {
       await signInWithPopup(auth, provider)
       // Google accounts are pre-verified — App.jsx will route normally
     } catch (err) {
+      console.error('[Google sign-in]', err.code, err.message)
       setError(friendlyError(err.message))
       setGoogleLoading(false)
     }
