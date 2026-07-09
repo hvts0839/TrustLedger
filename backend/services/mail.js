@@ -182,15 +182,26 @@ async function sendOtpEmail(email, code) {
 </body>
 </html>`
 
-  const resend = getResend()
-  if (resend) {
+  const smtpOk = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS
+
+  if (smtpOk) {
     try {
-      const { data, error } = await resend.emails.send({
-        from,
-        to: email,
-        subject,
-        html,
-      })
+      const t = getTransporter()
+      await t.sendMail({ from, to: email, subject, html })
+      console.log(`[OTP-MAIL] Sent OTP to ${email} via SMTP`)
+      return true
+    } catch (err) {
+      console.error(`[OTP-MAIL] SMTP send failed for ${email}:`, err.message)
+    }
+  } else {
+    console.log(`[OTP-MAIL] SMTP not configured (SMTP_HOST=${!!process.env.SMTP_HOST}, SMTP_USER=${!!process.env.SMTP_USER}, SMTP_PASS=${!!process.env.SMTP_PASS})`)
+  }
+
+  const resend = getResend()
+  const sandbox = !process.env.EMAIL_FROM || from.includes('onboarding@resend.dev')
+  if (resend && !sandbox) {
+    try {
+      const { data, error } = await resend.emails.send({ from, to: email, subject, html })
       if (error) {
         console.error('[OTP-MAIL] Resend error:', error)
         throw new Error(error.message)
@@ -198,19 +209,14 @@ async function sendOtpEmail(email, code) {
       console.log(`[OTP-MAIL] Sent OTP to ${email} via Resend (id: ${data?.id})`)
       return true
     } catch (err) {
-      console.error('[OTP-MAIL] Resend failed, trying nodemailer fallback:', err.message)
+      console.error(`[OTP-MAIL] Resend failed for ${email}:`, err.message)
     }
+  } else if (resend && sandbox) {
+    console.error(`[OTP-MAIL] Resend skipped — sandbox sender (onboarding@resend.dev) would silently drop mail to non-owner recipients. Set EMAIL_FROM to a verified domain.`)
   }
 
-  try {
-    const t = getTransporter()
-    await t.sendMail({ from, to: email, subject, html })
-    console.log(`[OTP-MAIL] Sent OTP to ${email} via Nodemailer`)
-    return true
-  } catch (err) {
-    console.error('[OTP-MAIL] All email methods failed:', err.message)
-    return false
-  }
+  console.error(`[OTP-MAIL] All transports failed for ${email}. NEED: SMTP_HOST + SMTP_USER + SMTP_PASS for SMTP, or RESEND_API_KEY + EMAIL_FROM (verified domain) for Resend`)
+  return false
 }
 
 module.exports = { sendAlertEmail, sendOtpEmail, buildLockoutEmail, buildNewDeviceEmail, buildOverdueEmail, buildPinChangedEmail, buildPinResetEmail, buildRateChangeAlertEmail }

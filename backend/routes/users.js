@@ -398,7 +398,7 @@ router.post('/send-otp', auth, wrapAsync(async (req, res) => {
     // Send email
     const sent = await sendOtpEmail(email, code)
     if (!sent) {
-      return res.status(500).json({ error: 'Failed to send verification email. Please try again.' })
+      return res.status(500).json({ error: 'Email service unavailable. Check server logs for details.' })
     }
 
     console.log(`[OTP] Sent to ${email} for UID ${req.msmeId}`)
