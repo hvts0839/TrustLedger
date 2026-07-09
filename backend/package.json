@@ -1,6 +1,7 @@
 {
   "name": "trustledger-backend",
   "private": true,
+  "engines": { "node": "22.x" },
   "type": "module",
   "scripts": {
     "dev": "node --watch server.js",
