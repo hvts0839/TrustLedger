@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals'
-import express from 'express'
-import supertest from 'supertest'
-import { connectDB, disconnectDB, clearDB, authHeader, TEST_MSME_ID } from './setup/db.js'
-import userRoutes from '../routes/users.js'
-import User from '../models/User.js'
+const { describe, it, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals')
+const express = require('express')
+const supertest = require('supertest')
+const { connectDB, disconnectDB, clearDB, authHeader, TEST_MSME_ID } = require('./setup/db.js')
+const userRoutes = require('../routes/users.js')
+const User = require('../models/User.js')
 
 function createApp() {
   const app = express()

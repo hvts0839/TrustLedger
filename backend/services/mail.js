@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer'
-import { Resend } from 'resend'
+const nodemailer = require('nodemailer')
+const { Resend } = require('resend')
 
 let transporter = null
 
@@ -23,7 +23,7 @@ function getTransporter() {
   return transporter
 }
 
-export async function sendAlertEmail({ to, subject, text }) {
+async function sendAlertEmail({ to, subject, text }) {
   const from = process.env.EMAIL_FROM || 'noreply@trustledger.app'
   try {
     const t = getTransporter()
@@ -34,7 +34,7 @@ export async function sendAlertEmail({ to, subject, text }) {
   }
 }
 
-export function buildLockoutEmail(name, email) {
+function buildLockoutEmail(name, email) {
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   return {
     subject: 'TrustLedger — Account Locked Due to Failed Login Attempts',
@@ -54,7 +54,7 @@ For assistance, please contact support.
   }
 }
 
-export function buildNewDeviceEmail(name, email, deviceInfo) {
+function buildNewDeviceEmail(name, email, deviceInfo) {
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   return {
     subject: 'TrustLedger — New Sign-In From Unrecognised Device',
@@ -73,7 +73,7 @@ If this wasn't you, reset your password immediately using the "Forgot Password" 
   }
 }
 
-export function buildOverdueEmail(userName, buyerName, invoiceNumber, amount, dueDate, interestAccrued) {
+function buildOverdueEmail(userName, buyerName, invoiceNumber, amount, dueDate, interestAccrued) {
   const dueFormatted = dueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   return {
@@ -95,7 +95,7 @@ This reminder was sent at ${now} IST.
   }
 }
 
-export function buildPinChangedEmail(name) {
+function buildPinChangedEmail(name) {
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   return {
     subject: 'TrustLedger — Security PIN Changed',
@@ -109,7 +109,7 @@ If you made this change, no action is needed. If you did NOT, someone may have a
   }
 }
 
-export function buildPinResetEmail(name) {
+function buildPinResetEmail(name) {
   const now = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
   return {
     subject: 'TrustLedger — Security PIN Reset',
@@ -123,7 +123,7 @@ If you made this change, no action is needed. If you did NOT, someone may have a
   }
 }
 
-export function buildRateChangeAlertEmail(name, email, oldRate, newRate) {
+function buildRateChangeAlertEmail(name, email, oldRate, newRate) {
   return {
     subject: 'TrustLedger — RBI Bank Rate May Have Changed',
     text: `Hi ${name || 'Valued User'},
@@ -150,7 +150,7 @@ function getResend() {
   return resendClient
 }
 
-export async function sendOtpEmail(email, code) {
+async function sendOtpEmail(email, code) {
   const from = process.env.EMAIL_FROM || 'TrustLedger <onboarding@resend.dev>'
   const subject = `${code} — Your TrustLedger verification code`
 
@@ -182,7 +182,6 @@ export async function sendOtpEmail(email, code) {
 </body>
 </html>`
 
-  // Try Resend first
   const resend = getResend()
   if (resend) {
     try {
@@ -203,7 +202,6 @@ export async function sendOtpEmail(email, code) {
     }
   }
 
-  // Fallback to nodemailer
   try {
     const t = getTransporter()
     await t.sendMail({ from, to: email, subject, html })
@@ -214,3 +212,5 @@ export async function sendOtpEmail(email, code) {
     return false
   }
 }
+
+module.exports = { sendAlertEmail, sendOtpEmail, buildLockoutEmail, buildNewDeviceEmail, buildOverdueEmail, buildPinChangedEmail, buildPinResetEmail, buildRateChangeAlertEmail }

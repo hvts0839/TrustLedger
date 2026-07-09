@@ -1,5 +1,5 @@
-import { describe, it, expect } from '@jest/globals'
-import { calculateInterest, calculateInterestSync } from '../services/interest.js'
+const { describe, it, expect } = require('@jest/globals')
+const { calculateInterest, calculateInterestSync } = require('../services/interest.js')
 
 function daysAgo(n) {
   const d = new Date()

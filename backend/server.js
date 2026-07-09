@@ -1,20 +1,20 @@
-import 'dotenv/config'
-import * as Sentry from '@sentry/node'
-import express from 'express'
-import cors from 'cors'
-import helmet from 'helmet'
-import mongoose from 'mongoose'
-import mongoSanitize from 'express-mongo-sanitize'
-import auth from './middleware/auth.js'
-import invoiceRoutes from './routes/invoices.js'
-import userRoutes from './routes/users.js'
-import buyerRoutes from './routes/buyers.js'
-import notificationRoutes from './routes/notifications.js'
-import systemRoutes from './routes/system.js'
-import { loginLimiter, forgotFlowLimiter, apiLimiter } from './services/rateLimit.js'
-import { fingerprint, buildDeviceInfo } from './services/deviceFingerprint.js'
-import { startOverdueScan } from './services/overdueScan.js'
-import { startRbiRateCheck } from './services/rbiRateCheck.js'
+require('dotenv/config')
+const Sentry = require('@sentry/node')
+const express = require('express')
+const cors = require('cors')
+const helmet = require('helmet')
+const mongoose = require('mongoose')
+const mongoSanitize = require('express-mongo-sanitize')
+const auth = require('./middleware/auth.js')
+const invoiceRoutes = require('./routes/invoices.js')
+const userRoutes = require('./routes/users.js')
+const buyerRoutes = require('./routes/buyers.js')
+const notificationRoutes = require('./routes/notifications.js')
+const systemRoutes = require('./routes/system.js')
+const { loginLimiter, forgotFlowLimiter, apiLimiter } = require('./services/rateLimit.js')
+const { fingerprint, buildDeviceInfo } = require('./services/deviceFingerprint.js')
+const { startOverdueScan } = require('./services/overdueScan.js')
+const { startRbiRateCheck } = require('./services/rbiRateCheck.js')
 
 Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'development' })
 

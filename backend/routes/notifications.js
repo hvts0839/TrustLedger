@@ -1,5 +1,5 @@
-import { Router } from 'express'
-import Notification from '../models/Notification.js'
+const { Router } = require('express')
+const Notification = require('../models/Notification.js')
 
 const router = Router()
 
@@ -25,4 +25,4 @@ router.patch('/:id/read', async (req, res) => {
   res.json({ ok: true })
 })
 
-export default router
+module.exports = router

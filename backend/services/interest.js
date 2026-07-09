@@ -1,20 +1,19 @@
-import SystemConfig from '../models/SystemConfig.js'
+const SystemConfig = require('../models/SystemConfig.js')
 
 function monthlyRateFromBankRate(bankRatePercent) {
   return (bankRatePercent * 3 / 100) / 12
 }
 
-export async function getRbiBankRate() {
+async function getRbiBankRate() {
   const config = await SystemConfig.getConfig()
   return config.rbiBankRate
 }
 
-export async function getRateHistory() {
+async function getRateHistory() {
   const config = await SystemConfig.getConfig()
   return config.rateHistory || []
 }
 
-// ponytail: linear scan of history array — tiny dataset (<200 entries ever), no index needed
 function rateForMonth(rateHistory, year, month, defaultRate) {
   if (!rateHistory || rateHistory.length === 0) return defaultRate
   const sorted = [...rateHistory].sort((a, b) => (b.year - a.year) || (b.month - a.month))
@@ -26,7 +25,7 @@ function rateForMonth(rateHistory, year, month, defaultRate) {
   return defaultRate
 }
 
-export function calculateInterest(amount, deliveryDate, agreedTermsDays, asOfDate, bankRatePercent, rateHistory) {
+function calculateInterest(amount, deliveryDate, agreedTermsDays, asOfDate, bankRatePercent, rateHistory) {
   if (!amount || !deliveryDate) return { totalInterest: 0, breakdown: null }
 
   const due = new Date(deliveryDate)
@@ -79,7 +78,7 @@ export function calculateInterest(amount, deliveryDate, agreedTermsDays, asOfDat
   }
 }
 
-export function calculateInterestSync(amount, deliveryDate, agreedTermsDays, asOfDate, bankRatePercent) {
+function calculateInterestSync(amount, deliveryDate, agreedTermsDays, asOfDate, bankRatePercent) {
   if (!amount || !deliveryDate) return { totalInterest: 0, daysOverdue: 0 }
 
   const due = new Date(deliveryDate)
@@ -109,3 +108,5 @@ export function calculateInterestSync(amount, deliveryDate, agreedTermsDays, asO
   const totalInterest = Math.round((compounded - amount) * 100) / 100
   return { totalInterest, daysOverdue }
 }
+
+module.exports = { getRbiBankRate, getRateHistory, calculateInterest, calculateInterestSync }

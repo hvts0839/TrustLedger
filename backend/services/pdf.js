@@ -1,8 +1,7 @@
-import PDFDocument from 'pdfkit'
-import { calculateInterestSync } from './interest.js'
+const PDFDocument = require('pdfkit')
+const { calculateInterestSync } = require('./interest.js')
 
-// ponytail: single-function module — no template engine, no HTML-to-PDF, just raw pdfkit
-export function generateNoticePDF(invoice, user) {
+function generateNoticePDF(invoice, user) {
   const doc = new PDFDocument({ margin: 50, size: 'A4' })
   const chunks = []
   doc.on('data', (chunk) => chunks.push(chunk))
@@ -82,3 +81,5 @@ export function generateNoticePDF(invoice, user) {
     doc.on('end', () => resolve(Buffer.concat(chunks)))
   })
 }
+
+module.exports = { generateNoticePDF }

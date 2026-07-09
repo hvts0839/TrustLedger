@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+const mongoose = require('mongoose')
 
 const userSchema = new mongoose.Schema({
   firebaseUid: { type: String, required: true, unique: true },
@@ -16,12 +16,10 @@ const userSchema = new mongoose.Schema({
   passwordAttempts: { type: Number, default: 0 },
   passwordLockedUntil: { type: Date, default: null },
   emailReminders: { type: Boolean, default: true },
-  // ponytail: unused until buyer-reliability aggregation across multiple MSMEs is built
-// currently reliability scores are per-MSME only, not cross-MSME aggregated, so no anonymization is needed yet
-dataSharing: { type: Boolean, default: false },
+  dataSharing: { type: Boolean, default: false },
   knownDevices: [{ type: String }],
   lastLoginAt: { type: Date, default: null },
   fcmTokens: [{ type: String }]
 }, { timestamps: true })
 
-export default mongoose.model('User', userSchema)
+module.exports = mongoose.model('User', userSchema)

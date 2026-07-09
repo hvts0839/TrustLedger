@@ -1,20 +1,20 @@
-import { MongoMemoryServer } from 'mongodb-memory-server'
-import mongoose from 'mongoose'
-import jwt from 'jsonwebtoken'
+const { MongoMemoryServer } = require('mongodb-memory-server')
+const mongoose = require('mongoose')
+const jwt = require('jsonwebtoken')
 
 let mongoServer
 
-export async function connectDB() {
+async function connectDB() {
   mongoServer = await MongoMemoryServer.create()
   await mongoose.connect(mongoServer.getUri())
 }
 
-export async function disconnectDB() {
+async function disconnectDB() {
   await mongoose.disconnect()
   if (mongoServer) await mongoServer.stop()
 }
 
-export async function clearDB() {
+async function clearDB() {
   await Promise.all(Object.values(mongoose.models).map(m => m.deleteMany({})))
 }
 
@@ -22,7 +22,7 @@ export async function clearDB() {
 
 const TEST_MSME_ID = 'test-msme-uid-12345'
 
-export function generateTestToken(overrides = {}) {
+function generateTestToken(overrides = {}) {
   const payload = {
     sub: overrides.msmeId || TEST_MSME_ID,
     iss: 'https://securetoken.google.com/test-project',
@@ -38,13 +38,13 @@ export function generateTestToken(overrides = {}) {
   })
 }
 
-export { TEST_MSME_ID }
+module.exports = { connectDB, disconnectDB, clearDB, generateTestToken, authHeader, TEST_MSME_ID }
 
 // ─── Idempotent auth middleware bypass for integration tests ──────────────
 // We don't need to generate real Firebase tokens; we set a valid one in
 // the Authorization header and the auth middleware will verify it using
 // our mock fetch + mock keys.
 
-export function authHeader(overrides = {}) {
+function authHeader(overrides = {}) {
   return { Authorization: `Bearer ${generateTestToken(overrides)}` }
 }

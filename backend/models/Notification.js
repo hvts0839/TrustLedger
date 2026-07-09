@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+const mongoose = require('mongoose')
 
 const notificationSchema = new mongoose.Schema({
   msmeId: { type: String, required: true },
@@ -9,4 +9,4 @@ const notificationSchema = new mongoose.Schema({
   relatedInvoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice', default: null }
 }, { timestamps: true })
 
-export default mongoose.model('Notification', notificationSchema)
+module.exports = mongoose.model('Notification', notificationSchema)

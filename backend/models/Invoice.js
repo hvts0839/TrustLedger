@@ -1,5 +1,5 @@
-import mongoose from 'mongoose'
-import { calculateInterestSync } from '../services/interest.js'
+const mongoose = require('mongoose')
+const { calculateInterestSync } = require('../services/interest.js')
 
 const invoiceSchema = new mongoose.Schema({
   msmeId: { type: String, required: true },
@@ -41,4 +41,4 @@ invoiceSchema.virtual('interestAccrued').get(function () {
 
 invoiceSchema.set('toJSON', { virtuals: true })
 
-export default mongoose.model('Invoice', invoiceSchema)
+module.exports = mongoose.model('Invoice', invoiceSchema)

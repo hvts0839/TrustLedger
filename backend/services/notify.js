@@ -1,8 +1,8 @@
-import Notification from '../models/Notification.js'
-import User from '../models/User.js'
-import { sendPushToTokens } from './fcm.js'
+const Notification = require('../models/Notification.js')
+const User = require('../models/User.js')
+const { sendPushToTokens } = require('./fcm.js')
 
-export async function createNotification(msmeId, title, message, type = 'info', relatedInvoiceId = null) {
+async function createNotification(msmeId, title, message, type = 'info', relatedInvoiceId = null) {
   try {
     await Notification.create({ msmeId, title, message, type, relatedInvoiceId })
     const user = await User.findOne({ firebaseUid: msmeId }).select('fcmTokens').lean()
@@ -20,3 +20,5 @@ export async function createNotification(msmeId, title, message, type = 'info', 
     console.error('[NOTIFY]', err.message)
   }
 }
+
+module.exports = { createNotification }

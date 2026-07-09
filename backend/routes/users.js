@@ -1,10 +1,10 @@
-import { Router } from 'express'
-import crypto from 'crypto'
-import User from '../models/User.js'
-import OTP from '../models/OTP.js'
-import auth from '../middleware/auth.js'
-import { sendAlertEmail, buildLockoutEmail, buildNewDeviceEmail, buildPinChangedEmail, buildPinResetEmail, sendOtpEmail } from '../services/mail.js'
-import { createNotification } from '../services/notify.js'
+const { Router } = require('express')
+const crypto = require('crypto')
+const User = require('../models/User.js')
+const OTP = require('../models/OTP.js')
+const auth = require('../middleware/auth.js')
+const { sendAlertEmail, buildLockoutEmail, buildNewDeviceEmail, buildPinChangedEmail, buildPinResetEmail, sendOtpEmail } = require('../services/mail.js')
+const { createNotification } = require('../services/notify.js')
 
 const router = Router()
 
@@ -458,4 +458,4 @@ router.post('/verify-otp', auth, async (req, res) => {
   }
 })
 
-export default router
+module.exports = router

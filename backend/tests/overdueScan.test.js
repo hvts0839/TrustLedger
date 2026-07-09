@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals'
-import { connectDB, disconnectDB, clearDB, TEST_MSME_ID } from './setup/db.js'
-import { runOverdueScan } from '../services/overdueScan.js'
-import Invoice from '../models/Invoice.js'
-import User from '../models/User.js'
+const { describe, it, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals')
+const { connectDB, disconnectDB, clearDB, TEST_MSME_ID } = require('./setup/db.js')
+const { runOverdueScan } = require('../services/overdueScan.js')
+const Invoice = require('../models/Invoice.js')
+const User = require('../models/User.js')
 
 beforeAll(connectDB)
 afterAll(disconnectDB)

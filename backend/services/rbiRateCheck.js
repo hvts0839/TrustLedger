@@ -1,12 +1,12 @@
-import cron from 'node-cron'
-import SystemConfig from '../models/SystemConfig.js'
-import { sendAlertEmail, buildRateChangeAlertEmail } from './mail.js'
-import { createNotification } from './notify.js'
-import User from '../models/User.js'
+const cron = require('node-cron')
+const SystemConfig = require('../models/SystemConfig.js')
+const { sendAlertEmail, buildRateChangeAlertEmail } = require('./mail.js')
+const { createNotification } = require('./notify.js')
+const User = require('../models/User.js')
 
 const RBI_NSDP_URL = 'https://rbi.org.in/Scripts/BS_NSDPDisplay.aspx?param=4'
 
-export function startRbiRateCheck() {
+function startRbiRateCheck() {
   cron.schedule('0 10 * * 1', async () => {
     console.log('[RBI-RATE] Starting weekly bank rate check at', new Date().toISOString())
     await checkRbiRate()
@@ -104,3 +104,5 @@ async function fetchRbiRate() {
     return null
   }
 }
+
+module.exports = { startRbiRateCheck, checkRbiRate }

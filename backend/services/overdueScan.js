@@ -1,20 +1,20 @@
-import cron from 'node-cron'
-import Invoice from '../models/Invoice.js'
-import User from '../models/User.js'
-import { sendAlertEmail, buildOverdueEmail } from './mail.js'
-import { calculateInterestSync } from './interest.js'
-import { createNotification } from './notify.js'
-import { daysOverdue, stageForDays, transitionTo, STAGES } from './escalation.js'
+const cron = require('node-cron')
+const Invoice = require('../models/Invoice.js')
+const User = require('../models/User.js')
+const { sendAlertEmail, buildOverdueEmail } = require('./mail.js')
+const { calculateInterestSync } = require('./interest.js')
+const { createNotification } = require('./notify.js')
+const { daysOverdue, stageForDays, transitionTo, STAGES } = require('./escalation.js')
 
-export function startOverdueScan() {
-  cron.schedule('0 8 * * *', async () => {
-    console.log('[OVERDUE-SCAN] Starting daily scan at', new Date().toISOString())
+function startOverdueScan() {
+  cron.schedule('0 6 * * *', async () => {
+    console.log('[OVERDUE-SCAN] Starting daily overdue scan at', new Date().toISOString())
     await runOverdueScan()
   })
-  console.log('[OVERDUE-SCAN] Scheduled: daily at 08:00')
+  console.log('[OVERDUE-SCAN] Scheduled: daily at 06:00')
 }
 
-export async function runOverdueScan() {
+async function runOverdueScan() {
   const start = Date.now()
   const now = new Date()
   let scanned = 0
@@ -89,3 +89,5 @@ function isSameDay(a, b) {
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
 }
+
+module.exports = { startOverdueScan, runOverdueScan }

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals'
-import express from 'express'
-import supertest from 'supertest'
-import { connectDB, disconnectDB, clearDB, authHeader, TEST_MSME_ID } from './setup/db.js'
-import invoiceRoutes from '../routes/invoices.js'
-import auth from '../middleware/auth.js'
-import Invoice from '../models/Invoice.js'
+const { describe, it, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals')
+const express = require('express')
+const supertest = require('supertest')
+const { connectDB, disconnectDB, clearDB, authHeader, TEST_MSME_ID } = require('./setup/db.js')
+const invoiceRoutes = require('../routes/invoices.js')
+const auth = require('../middleware/auth.js')
+const Invoice = require('../models/Invoice.js')
 
 function createApp() {
   const app = express()

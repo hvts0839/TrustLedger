@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken'
+const jwt = require('jsonwebtoken')
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || 'trustledger-747ba'
 const CERTS_URL = 'https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com'
@@ -20,7 +20,7 @@ async function getFirebaseKey(kid) {
   return keys[kid]
 }
 
-export default async function auth(req, res, next) {
+async function auth(req, res, next) {
   const header = req.headers.authorization
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ error: 'missing token' })
 
@@ -46,3 +46,5 @@ export default async function auth(req, res, next) {
     res.status(401).json({ error: 'invalid token' })
   }
 }
+
+module.exports = auth

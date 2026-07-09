@@ -1,18 +1,18 @@
-import 'dotenv/config'
-import * as Sentry from '@sentry/node'
-import express from 'express'
-import cors from 'cors'
-import helmet from 'helmet'
-import mongoose from 'mongoose'
-import mongoSanitize from 'express-mongo-sanitize'
-import auth from '../backend/middleware/auth.js'
-import invoiceRoutes from '../backend/routes/invoices.js'
-import userRoutes from '../backend/routes/users.js'
-import buyerRoutes from '../backend/routes/buyers.js'
-import notificationRoutes from '../backend/routes/notifications.js'
-import systemRoutes from '../backend/routes/system.js'
-import { loginLimiter, forgotFlowLimiter, apiLimiter } from '../backend/services/rateLimit.js'
-import { fingerprint, buildDeviceInfo } from '../backend/services/deviceFingerprint.js'
+require('dotenv/config')
+const Sentry = require('@sentry/node')
+const express = require('express')
+const cors = require('cors')
+const helmet = require('helmet')
+const mongoose = require('mongoose')
+const mongoSanitize = require('express-mongo-sanitize')
+const auth = require('../backend/middleware/auth.js')
+const invoiceRoutes = require('../backend/routes/invoices.js')
+const userRoutes = require('../backend/routes/users.js')
+const buyerRoutes = require('../backend/routes/buyers.js')
+const notificationRoutes = require('../backend/routes/notifications.js')
+const systemRoutes = require('../backend/routes/system.js')
+const { loginLimiter, forgotFlowLimiter, apiLimiter } = require('../backend/services/rateLimit.js')
+const { fingerprint, buildDeviceInfo } = require('../backend/services/deviceFingerprint.js')
 
 const REQUIRED_ENV = ['MONGO_URL']
 const missing = REQUIRED_ENV.filter(k => !process.env[k])
@@ -65,7 +65,7 @@ async function connectDb() {
   cachedDb = await mongoose.connect(process.env.MONGO_URL)
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   try {
     await connectDb()
     return app(req, res)

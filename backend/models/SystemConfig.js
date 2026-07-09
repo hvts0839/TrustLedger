@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+const mongoose = require('mongoose')
 
 const systemConfigSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true, default: 'default' },
@@ -26,4 +26,4 @@ systemConfigSchema.statics.updateBankRate = async function (newRate) {
   return config
 }
 
-export default mongoose.model('SystemConfig', systemConfigSchema)
+module.exports = mongoose.model('SystemConfig', systemConfigSchema)

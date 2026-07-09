@@ -1,9 +1,9 @@
-import { Router } from 'express'
-import Buyer from '../models/Buyer.js'
-import Invoice from '../models/Invoice.js'
-import { createNotification } from '../services/notify.js'
-import { calculateBuyerScore } from '../services/reliability.js'
-import auth from '../middleware/auth.js'
+const { Router } = require('express')
+const Buyer = require('../models/Buyer.js')
+const Invoice = require('../models/Invoice.js')
+const { createNotification } = require('../services/notify.js')
+const { calculateBuyerScore } = require('../services/reliability.js')
+const auth = require('../middleware/auth.js')
 
 const router = Router()
 
@@ -62,4 +62,4 @@ router.delete('/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
-export default router
+module.exports = router

@@ -1,6 +1,6 @@
-import { Router } from 'express'
-import SystemConfig from '../models/SystemConfig.js'
-import auth from '../middleware/auth.js'
+const { Router } = require('express')
+const SystemConfig = require('../models/SystemConfig.js')
+const auth = require('../middleware/auth.js')
 
 const router = Router()
 
@@ -39,4 +39,4 @@ router.post('/config/acknowledge-rate-flag', auth, async (req, res) => {
   res.json({ ok: true })
 })
 
-export default router
+module.exports = router

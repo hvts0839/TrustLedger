@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals'
-import { connectDB, disconnectDB, clearDB } from './setup/db.js'
-import Invoice from '../models/Invoice.js'
+const { describe, it, expect, beforeAll, afterAll, beforeEach } = require('@jest/globals')
+const { connectDB, disconnectDB, clearDB } = require('./setup/db.js')
+const Invoice = require('../models/Invoice.js')
 
 function daysAgo(n) {
   const d = new Date()

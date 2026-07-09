@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, jest } from '@jest/globals'
-import { connectDB, disconnectDB, clearDB } from './setup/db.js'
-import { sendAlertEmail, sendOtpEmail, buildLockoutEmail, buildNewDeviceEmail, buildOverdueEmail, buildPinChangedEmail, buildPinResetEmail } from '../services/mail.js'
-import nodemailer from 'nodemailer'
+const { describe, it, expect, beforeAll, afterAll, beforeEach, jest } = require('@jest/globals')
+const { connectDB, disconnectDB, clearDB } = require('./setup/db.js')
+const { sendAlertEmail, sendOtpEmail, buildLockoutEmail, buildNewDeviceEmail, buildOverdueEmail, buildPinChangedEmail, buildPinResetEmail } = require('../services/mail.js')
+const nodemailer = require('nodemailer')
 
 const mockSendMail = jest.fn().mockResolvedValue({ messageId: 'mock-msg-id' })
 
@@ -91,7 +91,7 @@ describe('sendOtpEmail', () => {
     process.env.SMTP_PASS = 'p'
 
     // Make Resend mock fail then fallback to nodemailer which also fails
-    const { Resend } = await import('resend')
+    const { Resend } = require('resend')
     Resend.prototype.emails.send = jest.fn().mockRejectedValue(new Error('Resend fail'))
 
     mockSendMail.mockRejectedValueOnce(new Error('Nodemailer fail'))

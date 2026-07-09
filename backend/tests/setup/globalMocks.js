@@ -4,7 +4,7 @@
 
 process.env.FIREBASE_PROJECT_ID = 'test-project'
 
-import crypto from 'crypto'
+const crypto = require('crypto')
 
 const mockKid = 'test-kid'
 const keyPair = crypto.generateKeyPairSync('rsa', {
@@ -20,7 +20,7 @@ global.__MOCK_PRIVATE_KEY__ = mockPrivateKey
 global.__MOCK_KID__ = mockKid
 
 // Patch jwt.decode to return a predictable header with our mock kid
-import jwt from 'jsonwebtoken'
+const jwt = require('jsonwebtoken')
 
 const origDecode = jwt.decode
 jwt.decode = function (token, options) {
@@ -54,14 +54,14 @@ global.fetch = async (url) => {
 // ─── Mock nodemailer / Resend ─────────────────────────────────────────────
 // No emails should ever be sent during tests
 
-import nodemailer from 'nodemailer'
+const nodemailer = require('nodemailer')
 
 const mockSendMail = async () => ({ messageId: 'mock-msg-id' })
 
 nodemailer.createTransport = () => ({ sendMail: mockSendMail })
 
 // Mock Resend
-import { Resend as ResendClass } from 'resend'
+const { Resend: ResendClass } = require('resend')
 const origResendProto = ResendClass.prototype
 origResendProto.emails = {
   send: async () => ({ data: { id: 'mock-resend-id' }, error: null }),

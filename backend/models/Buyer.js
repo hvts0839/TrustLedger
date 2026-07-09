@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+const mongoose = require('mongoose')
 
 const buyerSchema = new mongoose.Schema({
   msmeId: { type: String, required: true },
@@ -9,4 +9,4 @@ const buyerSchema = new mongoose.Schema({
   gstin: { type: String, default: '' }
 }, { timestamps: true })
 
-export default mongoose.model('Buyer', buyerSchema)
+module.exports = mongoose.model('Buyer', buyerSchema)
