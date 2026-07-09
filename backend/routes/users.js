@@ -192,18 +192,22 @@ router.get('/me', auth, async (req, res) => {
   res.json(user)
 })
 
-router.post('/me', auth, async (req, res) => {
-  const existing = await User.findOne({ firebaseUid: req.msmeId })
-  if (existing) return res.json(existing)
+router.post('/me', auth, async (req, res, next) => {
+  try {
+    const existing = await User.findOne({ firebaseUid: req.msmeId })
+    if (existing) return res.json(existing)
 
-  const user = await User.create({
-    firebaseUid: req.msmeId,
-    name: req.body.name || '',
-    email: req.body.email || '',
-    authProvider: req.body.authProvider || 'email',
-  })
-  createNotification(req.msmeId, 'Welcome to TrustLedger', 'Your account is ready. Set up your profile to get started.', 'success')
-  res.status(201).json(user)
+    const user = await User.create({
+      firebaseUid: req.msmeId,
+      name: req.body.name || '',
+      email: req.body.email || '',
+      authProvider: req.body.authProvider || 'email',
+    })
+    await createNotification(req.msmeId, 'Welcome to TrustLedger', 'Your account is ready. Set up your profile to get started.', 'success')
+    res.status(201).json(user)
+  } catch (err) {
+    next(err)
+  }
 })
 
 router.patch('/me', auth, async (req, res) => {

@@ -14,6 +14,10 @@ import systemRoutes from '../backend/routes/system.js'
 import { loginLimiter, forgotFlowLimiter, apiLimiter } from '../backend/services/rateLimit.js'
 import { fingerprint, buildDeviceInfo } from '../backend/services/deviceFingerprint.js'
 
+const REQUIRED_ENV = ['MONGO_URL']
+const missing = REQUIRED_ENV.filter(k => !process.env[k])
+if (missing.length) console.error('[ENV] MISSING:', missing.join(', '))
+
 Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || 'production' })
 
 const app = express()
@@ -47,6 +51,11 @@ app.use('/invoices', auth, apiLimiter, invoiceRoutes)
 app.use('/buyers', auth, apiLimiter, buyerRoutes)
 app.use('/notifications', auth, apiLimiter, notificationRoutes)
 app.use('/system', apiLimiter, systemRoutes)
+
+app.use((err, req, res, next) => {
+  console.error('[FATAL]', err.stack || err.message)
+  res.status(500).json({ error: 'Internal server error' })
+})
 
 const mongoLog = process.env.MONGO_LOG_LEVEL === 'basic' ? err => console.error('MongoDB:', err.message) : console.error
 mongoose.connection.on('error', mongoLog) // ponytail: global handler, per-env log level if more granularity needed
