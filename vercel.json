@@ -1,0 +1,9 @@
+{
+  "buildCommand": false,
+  "devCommand": false,
+  "installCommand": "npm install",
+  "functions": {
+    "api/**/*.js": { "maxDuration": 30 }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": "/api" }]
+}
