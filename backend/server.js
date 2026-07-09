@@ -58,4 +58,7 @@ mongoose.connect(process.env.MONGO_URL).then(() => {
   startOverdueScan()
   startRbiRateCheck()
   app.listen(process.env.PORT || 3000, () => console.log('up'))
+}).catch(err => {
+  console.error('MongoDB connection failed:', err.message)
+  process.exit(1)
 })
